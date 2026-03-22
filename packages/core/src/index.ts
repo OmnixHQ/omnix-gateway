@@ -43,3 +43,12 @@ export type {
   CreateTenantInput,
   UpdateTenantInput,
 } from './infra/TenantRepository.js';
+
+// ─── Session ────────────────────────────────────────────────────────────────
+
+export { SessionStore } from './session/SessionStore.js';
+export type {
+  CheckoutSession,
+  SessionStatus,
+  UpdateSessionData,
+} from './session/SessionStore.js';

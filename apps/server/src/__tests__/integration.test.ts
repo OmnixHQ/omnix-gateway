@@ -1,5 +1,5 @@
 /**
- * UCPM-22: Integration tests vs MockAdapter.
+ * UCPM-22 + UCPM-33: Integration tests vs MockAdapter.
  *
  * These tests exercise the full Fastify request pipeline (middleware + routes)
  * against the MockAdapter, using Fastify's inject() for speed.
@@ -8,6 +8,10 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildTestApp } from './test-helpers.js';
+
+const AGENT_HEADER = { 'ucp-agent': 'test-agent/1.0' };
+const HOST_HEADER = { host: 'mock-store.localhost' };
+const HEADERS = { ...HOST_HEADER, ...AGENT_HEADER };
 
 describe('Integration: MockAdapter endpoints', () => {
   let app: FastifyInstance;
@@ -24,11 +28,11 @@ describe('Integration: MockAdapter endpoints', () => {
   // ── GET /.well-known/ucp ───────────────────────────────────────────────
 
   describe('GET /.well-known/ucp', () => {
-    it('returns a valid UCP profile', async () => {
+    it('returns a valid UCP profile (no agent header required)', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/.well-known/ucp',
-        headers: { host: 'mock-store.localhost' },
+        headers: HOST_HEADER,
       });
 
       expect(res.statusCode).toBe(200);
@@ -43,6 +47,33 @@ describe('Integration: MockAdapter endpoints', () => {
     });
   });
 
+  // ── UCP-Agent header validation ───────────────────────────────────────
+
+  describe('UCP-Agent header validation', () => {
+    it('returns 401 when UCP-Agent header is missing on /ucp/* routes', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/ucp/products?q=shoes',
+        headers: HOST_HEADER,
+      });
+
+      expect(res.statusCode).toBe(401);
+      const body = JSON.parse(res.body) as Record<string, unknown>;
+      const error = body['error'] as Record<string, unknown>;
+      expect(error).toHaveProperty('code', 'INVALID_AGENT');
+    });
+
+    it('allows requests with valid UCP-Agent header', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/ucp/products?q=shoes',
+        headers: HEADERS,
+      });
+
+      expect(res.statusCode).toBe(200);
+    });
+  });
+
   // ── GET /ucp/products ─────────────────────────────────────────────────
 
   describe('GET /ucp/products', () => {
@@ -50,7 +81,7 @@ describe('Integration: MockAdapter endpoints', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/ucp/products?q=shoes',
-        headers: { host: 'mock-store.localhost' },
+        headers: HEADERS,
       });
 
       expect(res.statusCode).toBe(200);
@@ -67,12 +98,11 @@ describe('Integration: MockAdapter endpoints', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/ucp/products?q=nonexistent_xyz',
-        headers: { host: 'mock-store.localhost' },
+        headers: HEADERS,
       });
 
       expect(res.statusCode).toBe(200);
       const body = JSON.parse(res.body) as Record<string, unknown>;
-      expect(body).toHaveProperty('products');
       expect(body['products']).toEqual([]);
       expect(body['total']).toBe(0);
     });
@@ -81,7 +111,7 @@ describe('Integration: MockAdapter endpoints', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/ucp/products',
-        headers: { host: 'mock-store.localhost' },
+        headers: HEADERS,
       });
 
       expect(res.statusCode).toBe(400);
@@ -93,7 +123,7 @@ describe('Integration: MockAdapter endpoints', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/ucp/products?q=shoes&limit=200',
-        headers: { host: 'mock-store.localhost' },
+        headers: HEADERS,
       });
 
       expect(res.statusCode).toBe(400);
@@ -103,7 +133,7 @@ describe('Integration: MockAdapter endpoints', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/ucp/products?q=shoes&limit=2&page=1',
-        headers: { host: 'mock-store.localhost' },
+        headers: HEADERS,
       });
 
       expect(res.statusCode).toBe(200);
@@ -122,7 +152,7 @@ describe('Integration: MockAdapter endpoints', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/ucp/products/prod-001',
-        headers: { host: 'mock-store.localhost' },
+        headers: HEADERS,
       });
 
       expect(res.statusCode).toBe(200);
@@ -138,7 +168,7 @@ describe('Integration: MockAdapter endpoints', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/ucp/products/unknown-id',
-        headers: { host: 'mock-store.localhost' },
+        headers: HEADERS,
       });
 
       expect(res.statusCode).toBe(404);
@@ -148,10 +178,10 @@ describe('Integration: MockAdapter endpoints', () => {
     });
   });
 
-  // ── Health endpoints (no tenant resolution) ───────────────────────────
+  // ── Health endpoints (no tenant/agent resolution) ─────────────────────
 
   describe('Health endpoints', () => {
-    it('GET /health returns 200 without Host header', async () => {
+    it('GET /health returns 200 without Host or Agent header', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/health',
@@ -162,7 +192,7 @@ describe('Integration: MockAdapter endpoints', () => {
       expect(body).toEqual({ status: 'ok', version: '0.1.0' });
     });
 
-    it('GET /ready returns 200 without Host header', async () => {
+    it('GET /ready returns 200 without Host or Agent header', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/ready',

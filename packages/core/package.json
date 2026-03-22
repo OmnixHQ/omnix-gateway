@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.30.0",
+    "ioredis": "^5.4.0",
     "postgres": "^3.4.0"
   },
   "devDependencies": {
