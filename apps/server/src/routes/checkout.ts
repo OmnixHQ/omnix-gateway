@@ -6,8 +6,8 @@ import {
   isSessionExpired,
   isSessionOwnedByTenant,
   hasSessionAlreadyCompleted,
-  findExistingSessionByIdempotencyKey,
-  storeIdempotencyMapping,
+  checkIdempotencyKey,
+  storeIdempotencyRecord,
 } from './checkout-helpers.js';
 import { toPublicCheckoutResponse } from './checkout-response.js';
 
@@ -115,15 +115,14 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
     const idempotencyKey = request.headers['idempotency-key'] as string | undefined;
 
     if (idempotencyKey) {
-      const existingId = await findExistingSessionByIdempotencyKey(
+      const idempResult = await checkIdempotencyKey(
         redis,
         request.tenant.id,
         idempotencyKey,
+        parsed.data,
+        reply,
       );
-      if (existingId) {
-        const existing = await sessionStore.get(existingId);
-        if (existing) return sendPublic(reply, 200, existing);
-      }
+      if (idempResult && 'cached' in idempResult && idempResult.cached) return idempResult.reply;
     }
 
     const session = await sessionStore.create(request.tenant.id);
@@ -138,18 +137,34 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       }));
     }
     if (parsed.data.buyer) updateFields['buyer'] = parsed.data.buyer;
-    if (idempotencyKey) updateFields['idempotency_key'] = idempotencyKey;
 
     const result =
       Object.keys(updateFields).length > 0
         ? await sessionStore.update(session.id, updateFields)
         : session;
 
+    const responseBody = toPublicCheckoutResponse(result ?? session);
     if (idempotencyKey) {
-      await storeIdempotencyMapping(redis, request.tenant.id, idempotencyKey, session.id);
+      const hash = (await checkIdempotencyKey(
+        redis,
+        request.tenant.id,
+        idempotencyKey,
+        parsed.data,
+        reply,
+      )) as { cached: false; hash: string } | null;
+      if (hash && !hash.cached) {
+        await storeIdempotencyRecord(
+          redis,
+          request.tenant.id,
+          idempotencyKey,
+          hash.hash,
+          201,
+          JSON.stringify(responseBody),
+        );
+      }
     }
 
-    return sendPublic(reply, 201, result ?? session);
+    return reply.status(201).send(responseBody);
   });
 
   app.put<{ Params: { id: string } }>(

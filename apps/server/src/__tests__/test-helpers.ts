@@ -135,6 +135,21 @@ export async function buildTestApp(): Promise<{
       });
       return;
     }
+
+    const versionMatch = /version="([^"]+)"/.exec(agentHeader);
+    if (versionMatch?.[1] && versionMatch[1] > '2026-01-23') {
+      void reply.status(400).send({
+        messages: [
+          {
+            type: 'error',
+            code: 'version_unsupported',
+            content: `UCP version ${versionMatch[1]} is not supported`,
+            severity: 'recoverable',
+          },
+        ],
+      });
+      return;
+    }
   });
 
   // Routes

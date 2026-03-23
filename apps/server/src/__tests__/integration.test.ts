@@ -62,6 +62,34 @@ describe('Integration: MockAdapter endpoints', () => {
       expect(body.messages[0]!.code).toBe('INVALID_AGENT');
     });
 
+    it('rejects unsupported UCP version', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/ucp/products?q=shoes',
+        headers: {
+          ...HOST_HEADER,
+          'ucp-agent': 'profile="https://test/a.json"; version="2099-01-01"',
+        },
+      });
+
+      expect(res.statusCode).toBe(400);
+      const body = JSON.parse(res.body) as { messages: { code: string }[] };
+      expect(body.messages[0]!.code).toBe('version_unsupported');
+    });
+
+    it('accepts supported UCP version', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/ucp/products?q=shoes',
+        headers: {
+          ...HOST_HEADER,
+          'ucp-agent': 'profile="https://test/a.json"; version="2026-01-23"',
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+    });
+
     it('allows requests with valid UCP-Agent header', async () => {
       const res = await app.inject({
         method: 'GET',
