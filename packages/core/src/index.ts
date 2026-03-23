@@ -9,8 +9,8 @@ export type { PlatformAdapter } from './types/adapter.js';
 export type {
   UCPProfile,
   UCPService,
-  UCPCapabilityRef,
-  UCPPaymentHandlerRef,
+  UCPCapability,
+  UCPPaymentHandler,
   JsonWebKey,
   Product,
   ProductVariant,

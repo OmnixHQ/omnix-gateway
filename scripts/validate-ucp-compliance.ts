@@ -180,7 +180,7 @@ async function runChecks(): Promise<void> {
     );
     check('PR-03 ucp.version = spec version', u['version'] === UCP_SPEC_VERSION, `${u['version']}`);
 
-    const svcs = u['services'] as Record<string, Record<string, unknown>[]> | undefined;
+    const svcs = u['services'] as Record<string, Record<string, unknown>> | undefined;
     check('PR-04 ucp.services exists', svcs !== undefined, '');
     if (svcs) {
       check(
@@ -188,49 +188,56 @@ async function runChecks(): Promise<void> {
         Object.keys(svcs).every((k) => k.includes('.')),
         Object.keys(svcs).join(', '),
       );
-      for (const [n, arr] of Object.entries(svcs)) {
-        if (Array.isArray(arr) && arr.length > 0) {
-          const s = arr[0]!;
+      for (const [n, svc] of Object.entries(svcs)) {
+        check(
+          `PR-06 svc ${n}.version`,
+          typeof svc['version'] === 'string' && YYYY_MM_DD.test(svc['version'] as string),
+          `${svc['version']}`,
+        );
+        check(
+          `PR-07 svc ${n}.spec`,
+          typeof svc['spec'] === 'string' && (svc['spec'] as string).startsWith('http'),
+          `${svc['spec']}`,
+        );
+        const hasTransport =
+          svc['rest'] !== undefined ||
+          svc['mcp'] !== undefined ||
+          svc['a2a'] !== undefined ||
+          svc['embedded'] !== undefined;
+        check(`PR-08 svc ${n} has transport`, hasTransport, '');
+        if (svc['rest'] !== undefined) {
+          const rest = svc['rest'] as Record<string, unknown>;
           check(
-            `PR-06 svc ${n}.version`,
-            typeof s['version'] === 'string' && YYYY_MM_DD.test(s['version'] as string),
-            `${s['version']}`,
+            `PR-09 svc ${n}.rest.schema`,
+            typeof rest['schema'] === 'string' && (rest['schema'] as string).startsWith('http'),
+            `${rest['schema']}`,
           );
           check(
-            `PR-07 svc ${n}.spec`,
-            typeof s['spec'] === 'string' && (s['spec'] as string).startsWith('http'),
-            `${s['spec']}`,
-          );
-          check(`PR-08 svc ${n}.endpoint`, typeof s['endpoint'] === 'string', `${s['endpoint']}`);
-          check(
-            `PR-09 svc ${n}.schema`,
-            typeof s['schema'] === 'string' && (s['schema'] as string).startsWith('http'),
-            `${s['schema']}`,
-          );
-          check(
-            `PR-10 svc ${n}.transport`,
-            ['rest', 'mcp', 'a2a', 'embedded'].includes(s['transport'] as string),
-            `${s['transport']}`,
+            `PR-10 svc ${n}.rest.endpoint`,
+            typeof rest['endpoint'] === 'string',
+            `${rest['endpoint']}`,
           );
         }
       }
     }
 
-    const caps = u['capabilities'] as Record<string, Record<string, unknown>[]> | undefined;
-    check('PR-11 ucp.capabilities exists', caps !== undefined, '');
-    if (caps) {
-      for (const [cn, arr] of Object.entries(caps)) {
+    const caps = u['capabilities'] as Record<string, unknown>[] | undefined;
+    check('PR-11 ucp.capabilities is array', Array.isArray(caps), '');
+    if (Array.isArray(caps)) {
+      for (const cap of caps) {
+        const c = cap as Record<string, unknown>;
+        const cn = String(c['name'] ?? '');
         check(`PR-12 cap ${cn} reverse-domain`, REVERSE_DOMAIN_CAP.test(cn), cn);
-        if (Array.isArray(arr) && arr.length > 0) {
-          check(
-            `PR-13 cap ${cn}[0].version YYYY-MM-DD`,
-            YYYY_MM_DD.test(String(arr[0]!['version'])),
-            `${arr[0]!['version']}`,
-          );
-        }
+        check(
+          `PR-13 cap ${cn}.version YYYY-MM-DD`,
+          YYYY_MM_DD.test(String(c['version'])),
+          `${c['version']}`,
+        );
       }
     }
-    check('PR-14 ucp.payment_handlers exists', u['payment_handlers'] !== undefined, '');
+
+    const payment = prof['payment'] as Record<string, unknown> | undefined;
+    check('PR-14 payment object exists', payment !== undefined, '');
   }
   check(
     'PR-15 signing_keys array',
@@ -297,8 +304,7 @@ async function runChecks(): Promise<void> {
       YYYY_MM_DD.test(String(ue['version'])),
       `${ue['version']}`,
     );
-    check('SS-16 ucp.capabilities present', typeof ue['capabilities'] === 'object', '');
-    check('SS-17 ucp.payment_handlers present', typeof ue['payment_handlers'] === 'object', '');
+    check('SS-16 ucp.capabilities is array', Array.isArray(ue['capabilities']), '');
   }
 
   const items = s['line_items'] as Record<string, unknown>[];

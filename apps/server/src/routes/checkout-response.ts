@@ -26,10 +26,7 @@ export function toPublicCheckoutResponse(session: CheckoutSession): Record<strin
     expires_at: session.expires_at,
     ucp: {
       version: UCP_VERSION,
-      capabilities: {
-        'dev.ucp.shopping.checkout': [{ version: UCP_VERSION }],
-      },
-      payment_handlers: {},
+      capabilities: [{ name: 'dev.ucp.shopping.checkout', version: UCP_VERSION }],
     },
   };
 }

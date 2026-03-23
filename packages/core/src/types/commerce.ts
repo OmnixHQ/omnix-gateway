@@ -8,29 +8,43 @@
 export interface UCPProfile {
   readonly ucp: {
     readonly version: string;
-    readonly services: Readonly<Record<string, readonly UCPService[]>>;
-    readonly capabilities: Readonly<Record<string, readonly UCPCapabilityRef[]>>;
-    readonly payment_handlers: Readonly<Record<string, readonly UCPPaymentHandlerRef[]>>;
+    readonly services: Readonly<Record<string, UCPService>>;
+    readonly capabilities: readonly UCPCapability[];
   };
-  readonly signing_keys: readonly JsonWebKey[];
+  readonly payment?:
+    | {
+        readonly handlers?: readonly UCPPaymentHandler[];
+      }
+    | undefined;
+  readonly signing_keys?: readonly JsonWebKey[] | undefined;
 }
 
 export interface UCPService {
   readonly version: string;
   readonly spec: string;
-  readonly endpoint: string;
-  readonly schema: string;
-  readonly transport: 'rest' | 'mcp' | 'a2a' | 'embedded';
+  readonly rest?: { readonly schema: string; readonly endpoint: string } | undefined;
+  readonly mcp?: { readonly schema: string; readonly endpoint: string } | undefined;
+  readonly a2a?: { readonly endpoint: string } | undefined;
+  readonly embedded?: { readonly schema: string } | undefined;
 }
 
-export interface UCPCapabilityRef {
+export interface UCPCapability {
+  readonly name: string;
   readonly version: string;
+  readonly spec?: string | undefined;
+  readonly schema?: string | undefined;
+  readonly extends?: string | undefined;
   readonly config?: Readonly<Record<string, unknown>> | undefined;
 }
 
-export interface UCPPaymentHandlerRef {
+export interface UCPPaymentHandler {
   readonly id: string;
+  readonly name: string;
   readonly version: string;
+  readonly spec: string;
+  readonly config_schema: string;
+  readonly instrument_schemas?: readonly string[] | undefined;
+  readonly config?: Readonly<Record<string, unknown>> | undefined;
 }
 
 export interface JsonWebKey {
