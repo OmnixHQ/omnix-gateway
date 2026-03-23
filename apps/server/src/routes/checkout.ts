@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { AdapterError, EscalationRequiredError, type CheckoutSession } from '@ucp-middleware/core';
+import { AdapterError, EscalationRequiredError, type CheckoutSession } from '@ucp-gateway/core';
 import {
   sendSessionError,
   isSessionExpired,

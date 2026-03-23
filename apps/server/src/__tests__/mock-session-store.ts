@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import type { CheckoutSession, UpdateSessionData } from '@ucp-middleware/core';
+import type { CheckoutSession, UpdateSessionData } from '@ucp-gateway/core';
 
 const DEFAULT_TTL_SECONDS = 21600;
 

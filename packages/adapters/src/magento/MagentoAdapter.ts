@@ -9,8 +9,8 @@ import type {
   Total,
   PaymentToken,
   Order,
-} from '@ucp-middleware/core';
-import { AdapterError, notFound } from '@ucp-middleware/core';
+} from '@ucp-gateway/core';
+import { AdapterError, notFound } from '@ucp-gateway/core';
 import { httpGet, httpPost } from '../shared/http-client.js';
 import {
   mapMagentoProduct,
@@ -143,7 +143,7 @@ export class MagentoAdapter implements PlatformAdapter {
     address: Record<string, unknown>,
   ): Promise<void> {
     await this.post<number>(`/rest/V1/guest-carts/${encodeURIComponent(cartId)}/billing-address`, {
-      address: { ...address, email: 'guest@ucp-middleware.local' },
+      address: { ...address, email: 'guest@ucp-gateway.local' },
     });
   }
 

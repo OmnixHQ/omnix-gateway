@@ -1,4 +1,4 @@
-import type { Product, UCPProfile } from '@ucp-middleware/core';
+import type { Product, UCPProfile } from '@ucp-gateway/core';
 
 export const MOCK_PROFILE: UCPProfile = {
   ucp: {

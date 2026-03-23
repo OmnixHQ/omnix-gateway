@@ -7,8 +7,8 @@ import {
   AdapterRegistry,
   SessionStore,
   type Database,
-} from '@ucp-middleware/core';
-import { MockAdapter } from '@ucp-middleware/adapters';
+} from '@ucp-gateway/core';
+import { MockAdapter } from '@ucp-gateway/adapters';
 
 export interface Cradle {
   env: Env;

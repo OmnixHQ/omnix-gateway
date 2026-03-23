@@ -1,5 +1,5 @@
 {
-  "name": "@ucp-middleware/server",
+  "name": "@ucp-gateway/server",
   "version": "0.1.0",
   "private": true,
   "description": "UCP Middleware HTTP server — Fastify application",
@@ -20,8 +20,8 @@
   },
   "dependencies": {
     "@fastify/sensible": "^5.6.0",
-    "@ucp-middleware/adapters": "*",
-    "@ucp-middleware/core": "*",
+    "@ucp-gateway/adapters": "*",
+    "@ucp-gateway/core": "*",
     "awilix": "^10.0.0",
     "bullmq": "^5.12.0",
     "dotenv": "^16.4.0",

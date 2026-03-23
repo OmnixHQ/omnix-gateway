@@ -1,5 +1,5 @@
 /**
- * @ucp-middleware/core
+ * @ucp-gateway/core
  *
  * UCP Engine — types, routing, normalisation, and adapter interfaces.
  */

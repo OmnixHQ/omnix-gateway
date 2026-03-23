@@ -9,8 +9,8 @@ import type {
   Total,
   PaymentToken,
   Order,
-} from '@ucp-middleware/core';
-import { notFound, outOfStock } from '@ucp-middleware/core';
+} from '@ucp-gateway/core';
+import { notFound, outOfStock } from '@ucp-gateway/core';
 import { MOCK_PRODUCTS, MOCK_PROFILE } from './mock-data.js';
 
 const MAX_STOCK_QUANTITY = 10;

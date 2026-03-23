@@ -1,5 +1,5 @@
-import type { Cart, LineItem, Order, Total } from '@ucp-middleware/core';
-import type { Product } from '@ucp-middleware/core';
+import type { Cart, LineItem, Order, Total } from '@ucp-gateway/core';
+import type { Product } from '@ucp-gateway/core';
 import type {
   ShopwareCartLineItem,
   ShopwareCartResponse,

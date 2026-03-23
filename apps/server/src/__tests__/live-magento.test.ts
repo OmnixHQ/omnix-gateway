@@ -19,8 +19,8 @@ import sensible from '@fastify/sensible';
 
 import { createContainer, asValue, asClass, InjectionMode } from 'awilix';
 import Redis from 'ioredis';
-import { createDb, TenantRepository, AdapterRegistry, SessionStore } from '@ucp-middleware/core';
-import { MockAdapter } from '@ucp-middleware/adapters';
+import { createDb, TenantRepository, AdapterRegistry, SessionStore } from '@ucp-gateway/core';
+import { MockAdapter } from '@ucp-gateway/adapters';
 import type { Cradle } from '../container/index.js';
 import { errorHandlerPlugin } from '../middleware/error-handler.js';
 import { tenantResolutionPlugin } from '../middleware/tenant-resolution.js';

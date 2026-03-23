@@ -1,5 +1,5 @@
 {
-  "name": "@ucp-middleware/adapters",
+  "name": "@ucp-gateway/adapters",
   "version": "0.1.0",
   "private": true,
   "description": "Platform-specific adapter implementations for UCP Middleware",
@@ -19,7 +19,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@ucp-middleware/core": "*"
+    "@ucp-gateway/core": "*"
   },
   "devDependencies": {
     "typescript": "*"

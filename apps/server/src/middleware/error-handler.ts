@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyError, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
-import { AdapterError } from '@ucp-middleware/core';
+import { AdapterError } from '@ucp-gateway/core';
 
 interface ErrorBody {
   readonly messages: readonly {

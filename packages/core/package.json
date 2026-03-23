@@ -1,5 +1,5 @@
 {
-  "name": "@ucp-middleware/core",
+  "name": "@ucp-gateway/core",
   "version": "0.1.0",
   "private": true,
   "description": "UCP engine — types, routing, normalisation, and adapter interfaces",

@@ -1,4 +1,4 @@
-import { AdapterError } from '@ucp-middleware/core';
+import { AdapterError } from '@ucp-gateway/core';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 

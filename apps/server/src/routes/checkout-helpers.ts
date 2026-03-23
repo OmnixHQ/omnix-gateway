@@ -1,5 +1,5 @@
 import type { FastifyReply } from 'fastify';
-import type { CheckoutSession, Tenant } from '@ucp-middleware/core';
+import type { CheckoutSession, Tenant } from '@ucp-gateway/core';
 import type { Redis as RedisType } from 'ioredis';
 
 const IDEMPOTENCY_TTL_SECONDS = 1800;

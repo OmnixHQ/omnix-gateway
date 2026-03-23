@@ -2,7 +2,7 @@
 
 > Universal Commerce Protocol — connect any e-commerce store to any AI agent.
 
-[![CI](https://github.com/GetMomentumToday/ucp-middleware/actions/workflows/ci.yml/badge.svg)](https://github.com/GetMomentumToday/ucp-middleware/actions/workflows/ci.yml)
+[![CI](https://github.com/GetMomentumToday/ucp-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/GetMomentumToday/ucp-gateway/actions/workflows/ci.yml)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
 [![Node.js 22](https://img.shields.io/badge/node-22-brightgreen.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
@@ -85,7 +85,7 @@
 **Monorepo layout:**
 
 ```
-ucp-middleware/
+ucp-gateway/
 ├── apps/
 │   └── server/          # Fastify HTTP server
 ├── packages/
@@ -103,8 +103,8 @@ ucp-middleware/
 
 ```bash
 # 1. Clone
-git clone git@github.com:GetMomentumToday/ucp-middleware.git
-cd ucp-middleware
+git clone git@github.com:GetMomentumToday/ucp-gateway.git
+cd ucp-gateway
 
 # 2. Install dependencies
 npm install
@@ -143,10 +143,10 @@ Copy `.env.example` to `.env` and fill in the values:
 
 ## 6. Adapters
 
-Adapters implement the `IShopAdapter` interface from `@ucp-middleware/core`:
+Adapters implement the `IShopAdapter` interface from `@ucp-gateway/core`:
 
 ```typescript
-import type { IShopAdapter } from '@ucp-middleware/core';
+import type { IShopAdapter } from '@ucp-gateway/core';
 
 export class MyShopAdapter implements IShopAdapter {
   async getProduct(id: string) {
