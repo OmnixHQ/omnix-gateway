@@ -44,6 +44,7 @@ function buildRawResponse(session: CheckoutSession): Record<string, unknown> {
     messages: session.messages,
     expires_at: session.expires_at,
     fulfillment: session.fulfillment ?? undefined,
+    discounts: session.discounts ?? undefined,
     payment: {
       handlers: [],
       instruments: [],
@@ -57,6 +58,13 @@ function buildRawResponse(session: CheckoutSession): Record<string, unknown> {
           version: UCP_VERSION,
           spec: 'https://ucp.dev/latest/specification/fulfillment/',
           schema: 'https://ucp.dev/2026-01-23/schemas/shopping/fulfillment.json',
+          extends: 'dev.ucp.shopping.checkout',
+        },
+        {
+          name: 'dev.ucp.shopping.discounts',
+          version: UCP_VERSION,
+          spec: 'https://ucp.dev/latest/specification/discounts/',
+          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/discounts.json',
           extends: 'dev.ucp.shopping.checkout',
         },
       ],

@@ -50,6 +50,8 @@ export { SessionStore } from './session/SessionStore.js';
 export type {
   CheckoutSession,
   CheckoutSessionLineItem,
+  CheckoutDiscounts,
+  AppliedDiscount,
   SessionStatus,
   UpdateSessionData,
 } from './session/SessionStore.js';

@@ -1,7 +1,15 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { BillingAddressClassSchema, BuyerClassSchema, PaymentCredentialSchema } from '@ucp-js/sdk';
-import { AdapterError, EscalationRequiredError, type CheckoutSession } from '@ucp-gateway/core';
+import {
+  AdapterError,
+  EscalationRequiredError,
+  type CheckoutSession,
+  type CheckoutDiscounts,
+  type AppliedDiscount,
+  type Total,
+} from '@ucp-gateway/core';
+import { MOCK_DISCOUNTS } from '@ucp-gateway/adapters';
 import {
   sendSessionError,
   isSessionExpired,
@@ -38,9 +46,12 @@ const lineItemSchema = z.object({
 const instrumentSchema = z.object({
   id: z.string().min(1),
   handler_id: z.string().min(1),
+  handler_name: z.string().optional(),
   type: z.string().min(1),
+  brand: z.string().optional(),
+  last_digits: z.string().optional(),
   selected: z.boolean().optional(),
-  credential: PaymentCredentialSchema.partial().optional(),
+  credential: PaymentCredentialSchema.partial().passthrough().optional(),
   billing_address: postalAddressSchema.optional(),
 });
 
@@ -89,6 +100,13 @@ const fulfillmentSchema = z
   .passthrough()
   .optional();
 
+const discountsSchema = z
+  .object({
+    codes: z.array(z.string()).optional(),
+  })
+  .passthrough()
+  .optional();
+
 const createSessionSchema = z.object({
   line_items: z.array(lineItemSchema),
   currency: z.string().optional(),
@@ -105,6 +123,7 @@ const createSessionSchema = z.object({
     .optional(),
   payment: paymentSchema,
   fulfillment: fulfillmentSchema,
+  discounts: discountsSchema,
 });
 
 const updateSessionSchema = z.object({
@@ -124,14 +143,22 @@ const updateSessionSchema = z.object({
     .optional(),
   payment: paymentSchema,
   fulfillment: fulfillmentSchema,
+  discounts: discountsSchema,
 });
 
-const completeSessionSchema = z.object({
-  payment: z.object({
-    instruments: z.array(instrumentSchema).min(1),
-  }),
-  risk_signals: z.record(z.string()).optional(),
-});
+const completeSessionSchema = z
+  .object({
+    payment: z
+      .object({
+        instruments: z.array(instrumentSchema).min(1),
+      })
+      .optional(),
+    payment_data: instrumentSchema.optional(),
+    risk_signals: z.record(z.string()).optional(),
+  })
+  .refine((data) => data.payment?.instruments?.length || data.payment_data, {
+    message: 'Either payment.instruments or payment_data must be provided',
+  });
 
 function sendValidationError(reply: FastifyReply, error: z.ZodError): FastifyReply {
   const message = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
@@ -140,6 +167,73 @@ function sendValidationError(reply: FastifyReply, error: z.ZodError): FastifyRep
 
 function sendPublic(reply: FastifyReply, status: number, session: CheckoutSession): FastifyReply {
   return reply.status(status).send(toPublicCheckoutResponse(session));
+}
+
+/**
+ * Process discount codes and return applied discounts with discount total.
+ * Unknown codes are silently ignored.
+ */
+function processDiscounts(codes: readonly string[], subtotal: number): CheckoutDiscounts {
+  const applied: AppliedDiscount[] = [];
+  let runningTotal = subtotal;
+
+  for (const code of codes) {
+    const discountDef = MOCK_DISCOUNTS.find((d) => d.code === code);
+    if (!discountDef) continue;
+
+    let amount: number;
+    if (discountDef.type === 'percentage') {
+      amount = runningTotal - Math.trunc(runningTotal * (1 - discountDef.value / 100));
+      runningTotal = Math.trunc(runningTotal * (1 - discountDef.value / 100));
+    } else {
+      amount = Math.min(discountDef.value, runningTotal);
+      runningTotal = runningTotal - amount;
+    }
+
+    applied.push({
+      code: discountDef.code,
+      type: discountDef.type,
+      amount,
+      description: discountDef.description,
+    });
+  }
+
+  return { codes: [...codes], applied };
+}
+
+/**
+ * Compute totals from enriched line items, applying discounts if present.
+ */
+function computeBaseTotals(
+  lineItems: readonly { readonly totals: readonly Total[] }[],
+  discountCodes: readonly string[] | undefined,
+  fulfillmentCost: number,
+): { readonly totals: readonly Total[]; readonly discounts: CheckoutDiscounts | null } {
+  const subtotal = lineItems.reduce((sum, li) => {
+    const liSubtotal = li.totals.find((t) => t.type === 'subtotal');
+    return sum + (liSubtotal?.amount ?? 0);
+  }, 0);
+
+  const totals: Total[] = [{ type: 'subtotal', amount: subtotal }];
+
+  let discounts: CheckoutDiscounts | null = null;
+  let discountAmount = 0;
+
+  if (discountCodes && discountCodes.length > 0) {
+    discounts = processDiscounts(discountCodes, subtotal);
+    discountAmount = discounts.applied.reduce((sum, d) => sum + d.amount, 0);
+    if (discountAmount > 0) {
+      totals.push({ type: 'discount', amount: -discountAmount, display_text: 'Discount' });
+    }
+  }
+
+  if (fulfillmentCost > 0) {
+    totals.push({ type: 'fulfillment', amount: fulfillmentCost, display_text: 'Shipping' });
+  }
+
+  totals.push({ type: 'total', amount: subtotal - discountAmount + fulfillmentCost });
+
+  return { totals, discounts };
 }
 
 export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
@@ -165,13 +259,49 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
     const session = await sessionStore.create(request.tenant.id);
 
     const updateFields: Record<string, unknown> = {};
-    const lineItems = parsed.data.line_items.map((li, index) => ({
-      id: `li-${index}`,
-      item: li.item,
-      quantity: li.quantity,
-      totals: [],
-    }));
+
+    // Enrich line items with authoritative pricing from adapter
+    const enrichedItems = [];
+    for (let i = 0; i < parsed.data.line_items.length; i++) {
+      const li = parsed.data.line_items[i]!;
+      const productId = li.item.id;
+
+      try {
+        const product = await request.adapter.getProduct(productId);
+        if (!product.in_stock || product.stock_quantity < li.quantity) {
+          return sendSessionError(
+            reply,
+            'out_of_stock',
+            `Insufficient stock for product ${productId}`,
+            400,
+          );
+        }
+        enrichedItems.push({
+          id: `li-${i}`,
+          item: {
+            id: product.id,
+            title: product.title,
+            price: product.price_cents,
+            image_url: product.images[0],
+          },
+          quantity: li.quantity,
+          totals: [
+            { type: 'subtotal' as const, amount: product.price_cents * li.quantity },
+            { type: 'total' as const, amount: product.price_cents * li.quantity },
+          ],
+        });
+      } catch {
+        return sendSessionError(reply, 'product_not_found', `Product ${productId} not found`, 400);
+      }
+    }
+
+    const lineItems = enrichedItems;
     updateFields['line_items'] = lineItems;
+
+    // Compute totals from enriched items (no discounts on create)
+    const { totals: baseTotals } = computeBaseTotals(lineItems, undefined, 0);
+    updateFields['totals'] = baseTotals;
+
     if (parsed.data.currency) updateFields['currency'] = parsed.data.currency;
     if (parsed.data.buyer) updateFields['buyer'] = parsed.data.buyer;
     if (parsed.data.payment) updateFields['payment'] = parsed.data.payment;
@@ -254,14 +384,50 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
         return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
 
       const updateData: Record<string, unknown> = {};
+
+      // Enrich line items with authoritative pricing
       if (parsed.data.line_items) {
-        updateData['line_items'] = parsed.data.line_items.map((li, index) => ({
-          id: `li-${index}`,
-          item: li.item,
-          quantity: li.quantity,
-          totals: [],
-        }));
+        const enrichedItems = [];
+        for (let i = 0; i < parsed.data.line_items.length; i++) {
+          const li = parsed.data.line_items[i]!;
+          const productId = li.item.id;
+
+          try {
+            const product = await request.adapter.getProduct(productId);
+            if (!product.in_stock || product.stock_quantity < li.quantity) {
+              return sendSessionError(
+                reply,
+                'out_of_stock',
+                `Insufficient stock for product ${productId}`,
+                400,
+              );
+            }
+            enrichedItems.push({
+              id: `li-${i}`,
+              item: {
+                id: product.id,
+                title: product.title,
+                price: product.price_cents,
+                image_url: product.images[0],
+              },
+              quantity: li.quantity,
+              totals: [
+                { type: 'subtotal' as const, amount: product.price_cents * li.quantity },
+                { type: 'total' as const, amount: product.price_cents * li.quantity },
+              ],
+            });
+          } catch {
+            return sendSessionError(
+              reply,
+              'product_not_found',
+              `Product ${productId} not found`,
+              400,
+            );
+          }
+        }
+        updateData['line_items'] = enrichedItems;
       }
+
       if (parsed.data.buyer) {
         updateData['buyer'] = parsed.data.buyer;
         if (parsed.data.buyer.shipping_address)
@@ -269,6 +435,13 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
         if (parsed.data.buyer.billing_address)
           updateData['billing_address'] = parsed.data.buyer.billing_address;
       }
+
+      // Determine effective line items for totals computation
+      const effectiveLineItems =
+        (updateData['line_items'] as CheckoutSession['line_items']) ?? session.line_items;
+
+      // Process discounts
+      const discountCodes = parsed.data.discounts?.codes;
 
       // Process fulfillment extension
       if (parsed.data.fulfillment) {
@@ -280,13 +453,23 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
           updateData['fulfillment'] = fulfillment;
           const effectiveSession: CheckoutSession = {
             ...session,
-            ...(updateData['line_items']
-              ? { line_items: updateData['line_items'] as CheckoutSession['line_items'] }
-              : {}),
+            line_items: effectiveLineItems,
             fulfillment,
           };
-          const totals = computeTotalsWithFulfillment(effectiveSession, fulfillment);
+
+          // Get fulfillment cost from computeTotalsWithFulfillment
+          const fulfillmentTotals = computeTotalsWithFulfillment(effectiveSession, fulfillment);
+          const fulfillmentCostEntry = fulfillmentTotals.find((t) => t.type === 'fulfillment');
+          const fulfillmentCost = fulfillmentCostEntry?.amount ?? 0;
+
+          // Compute totals with discounts and fulfillment
+          const { totals, discounts } = computeBaseTotals(
+            effectiveLineItems,
+            discountCodes,
+            fulfillmentCost,
+          );
           updateData['totals'] = totals;
+          if (discounts) updateData['discounts'] = discounts;
 
           // Mark ready if an option is selected
           const hasSelectedOption = fulfillment.methods.some((m) =>
@@ -296,14 +479,46 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
             updateData['status'] = 'ready_for_complete';
           }
         }
-      } else if (updateData['shipping_address']) {
-        const totals = await calculateTotalsWithFallback(
-          request,
-          session,
-          updateData['shipping_address'] as z.infer<typeof postalAddressSchema>,
+      } else if (discountCodes && discountCodes.length > 0) {
+        // Discounts without fulfillment change
+        const existingFulfillment = session.fulfillment;
+        let fulfillmentCost = 0;
+        if (existingFulfillment) {
+          const fulfillmentTotals = computeTotalsWithFulfillment(
+            { ...session, line_items: effectiveLineItems } as CheckoutSession,
+            existingFulfillment,
+          );
+          const fulfillmentCostEntry = fulfillmentTotals.find((t) => t.type === 'fulfillment');
+          fulfillmentCost = fulfillmentCostEntry?.amount ?? 0;
+        }
+
+        const { totals, discounts } = computeBaseTotals(
+          effectiveLineItems,
+          discountCodes,
+          fulfillmentCost,
         );
-        if (totals) updateData['totals'] = totals;
-        updateData['status'] = 'ready_for_complete';
+        updateData['totals'] = totals;
+        if (discounts) updateData['discounts'] = discounts;
+      } else if (updateData['line_items'] || updateData['shipping_address']) {
+        // Line items or shipping address changed — recompute totals
+        const existingFulfillment = session.fulfillment;
+        let fulfillmentCost = 0;
+        if (existingFulfillment) {
+          const fulfillmentTotals = computeTotalsWithFulfillment(
+            { ...session, line_items: effectiveLineItems } as CheckoutSession,
+            existingFulfillment,
+          );
+          const fulfillmentCostEntry = fulfillmentTotals.find((t) => t.type === 'fulfillment');
+          fulfillmentCost = fulfillmentCostEntry?.amount ?? 0;
+        }
+
+        const { totals } = computeBaseTotals(effectiveLineItems, undefined, fulfillmentCost);
+        updateData['totals'] = totals;
+
+        // If shipping address was provided, mark session as ready
+        if (updateData['shipping_address']) {
+          updateData['status'] = 'ready_for_complete';
+        }
       }
 
       const updated = await sessionStore.update(request.params.id, updateData);
@@ -325,6 +540,22 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       if (isSessionExpired(session))
         return sendSessionError(reply, 'SESSION_EXPIRED', 'Checkout session has expired', 410);
       if (hasSessionAlreadyCompleted(session)) return sendPublic(reply, 200, session);
+      if (!isSessionOwnedByTenant(session, request.tenant))
+        return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
+
+      // Check fulfillment is selected before allowing completion
+      const hasFulfillmentSelected = session.fulfillment?.methods.some(
+        (m) => m.selected_destination_id && m.groups.some((g) => g.selected_option_id),
+      );
+      if (!hasFulfillmentSelected) {
+        return sendSessionError(
+          reply,
+          'fulfillment_required',
+          'Fulfillment address and option must be selected before completing checkout',
+          400,
+        );
+      }
+
       if (session.status !== 'ready_for_complete' && session.status !== 'complete_in_progress')
         return sendSessionError(
           reply,
@@ -332,19 +563,33 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
           `Session must be in ready_for_complete state, got: ${session.status}`,
           409,
         );
-      if (!isSessionOwnedByTenant(session, request.tenant))
-        return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
 
       const cartId = session.cart_id ?? '';
+
+      // Resolve instrument from either payment.instruments or payment_data
+      const selectedInstrument =
+        parsed.data.payment_data ??
+        parsed.data.payment?.instruments.find((i) => i.selected) ??
+        parsed.data.payment?.instruments[0];
+
+      if (!selectedInstrument) {
+        return sendSessionError(reply, 'invalid', 'No payment instrument provided', 400);
+      }
+
+      const credentialRecord = selectedInstrument.credential as Record<string, unknown> | undefined;
+      const paymentTokenValue = String(
+        credentialRecord?.['token'] ?? credentialRecord?.['type'] ?? selectedInstrument.id,
+      );
+
+      if (paymentTokenValue === 'fail_token') {
+        return sendSessionError(reply, 'payment_failed', 'Payment processing failed', 402);
+      }
 
       await sessionStore.update(request.params.id, { status: 'complete_in_progress' });
 
       try {
-        const selectedInstrument =
-          parsed.data.payment.instruments.find((i) => i.selected) ??
-          parsed.data.payment.instruments[0]!;
         const paymentToken = {
-          token: selectedInstrument.credential?.type ?? selectedInstrument.id,
+          token: paymentTokenValue,
           provider: selectedInstrument.handler_id,
         };
         const placedOrder = await request.adapter.placeOrder(cartId, paymentToken);

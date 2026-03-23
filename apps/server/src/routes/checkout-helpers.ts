@@ -12,6 +12,7 @@ export function sendSessionError(
   httpStatus: number,
 ): FastifyReply {
   return reply.status(httpStatus).send({
+    detail: message,
     messages: [{ type: 'error', code, content: message, severity: 'recoverable' }],
   });
 }

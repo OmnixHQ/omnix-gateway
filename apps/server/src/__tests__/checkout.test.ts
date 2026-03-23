@@ -54,6 +54,7 @@ describe('E2E Checkout: MockAdapter full flow', () => {
     expect(session.line_items).toHaveLength(1);
     expect(session.ucp).toBeDefined();
 
+    // Add fulfillment with destination and selected option
     const updateRes = await app.inject({
       method: 'PUT',
       url: `/checkout-sessions/${session.id}`,
@@ -70,6 +71,16 @@ describe('E2E Checkout: MockAdapter full flow', () => {
             postal_code: '78701',
             address_country: 'US',
           },
+        },
+        fulfillment: {
+          methods: [
+            {
+              type: 'shipping',
+              destinations: [{ id: 'dest_1', address_country: 'US' }],
+              selected_destination_id: 'dest_1',
+              groups: [{ selected_option_id: 'std-ship' }],
+            },
+          ],
         },
       }),
     });
@@ -236,7 +247,7 @@ describe('E2E Checkout: MockAdapter full flow', () => {
     expect(body.messages[0]!.code).toBe('missing');
   });
 
-  it('returns 409 when completing incomplete session', async () => {
+  it('returns 400 when completing session without fulfillment', async () => {
     const createRes = await app.inject({
       method: 'POST',
       url: '/checkout-sessions',
@@ -263,8 +274,8 @@ describe('E2E Checkout: MockAdapter full flow', () => {
         },
       }),
     });
-    expect(res.statusCode).toBe(409);
+    expect(res.statusCode).toBe(400);
     const body = JSON.parse(res.body) as { messages: { code: string }[] };
-    expect(body.messages[0]!.code).toBe('INVALID_SESSION_STATE');
+    expect(body.messages[0]!.code).toBe('fulfillment_required');
   });
 });

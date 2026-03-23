@@ -103,6 +103,13 @@ export const MOCK_PROFILE: UCPProfile = {
         schema: 'https://ucp.dev/2026-01-23/schemas/shopping/fulfillment.json',
         extends: 'dev.ucp.shopping.checkout',
       },
+      {
+        name: 'dev.ucp.shopping.discounts',
+        version: '2026-01-23',
+        spec: 'https://ucp.dev/latest/specification/discounts/',
+        schema: 'https://ucp.dev/2026-01-23/schemas/shopping/discounts.json',
+        extends: 'dev.ucp.shopping.checkout',
+      },
     ],
   },
   payment: {
@@ -120,6 +127,23 @@ export const MOCK_PROFILE: UCPProfile = {
   },
   signing_keys: [],
 };
+
+/* ---------------------------------------------------------------------------
+ * Discount codes
+ * ------------------------------------------------------------------------- */
+
+export interface MockDiscount {
+  readonly code: string;
+  readonly type: 'percentage' | 'fixed_amount';
+  readonly value: number;
+  readonly description: string;
+}
+
+export const MOCK_DISCOUNTS: readonly MockDiscount[] = [
+  { code: '10OFF', type: 'percentage', value: 10, description: '10% Off' },
+  { code: 'WELCOME20', type: 'percentage', value: 20, description: '20% Off' },
+  { code: 'FIXED500', type: 'fixed_amount', value: 500, description: '$5.00 Off' },
+];
 
 export const MOCK_PRODUCTS: readonly Product[] = [
   {
@@ -140,6 +164,17 @@ export const MOCK_PRODUCTS: readonly Product[] = [
         attributes: { size: 'standard' },
       },
     ],
+  },
+  {
+    id: 'gardenias',
+    title: 'Gardenias',
+    description: 'Beautiful gardenias flower arrangement.',
+    price_cents: 2000,
+    currency: 'USD',
+    in_stock: false,
+    stock_quantity: 0,
+    images: ['https://mock.store/images/gardenias-1.jpg'],
+    variants: [],
   },
   {
     id: 'prod-001',

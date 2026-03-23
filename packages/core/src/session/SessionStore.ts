@@ -32,6 +32,18 @@ export interface CheckoutSessionLineItem {
   readonly totals: readonly Total[];
 }
 
+export interface AppliedDiscount {
+  readonly code: string;
+  readonly type: 'percentage' | 'fixed_amount';
+  readonly amount: number;
+  readonly description: string;
+}
+
+export interface CheckoutDiscounts {
+  readonly codes: readonly string[];
+  readonly applied: readonly AppliedDiscount[];
+}
+
 export interface CheckoutSession {
   readonly id: string;
   readonly tenant_id: string;
@@ -48,6 +60,7 @@ export interface CheckoutSession {
   readonly continue_url: string | null;
   readonly messages: readonly UCPMessage[];
   readonly fulfillment: Fulfillment | null;
+  readonly discounts: CheckoutDiscounts | null;
   readonly escalation: EscalationDetails | null;
   readonly idempotency_key: string | null;
   readonly expires_at: string;
@@ -89,6 +102,7 @@ export class SessionStore {
       billing_address: null,
       order: null,
       fulfillment: null,
+      discounts: null,
       continue_url: null,
       messages: [],
       escalation: null,
