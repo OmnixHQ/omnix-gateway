@@ -77,12 +77,30 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Seed test tenant
+        run: |
+          PGPASSWORD=ucp psql -h localhost -U ucp -d ucp -c "
+            CREATE TABLE IF NOT EXISTS tenants (
+              id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+              slug VARCHAR(255) UNIQUE NOT NULL,
+              domain VARCHAR(255) UNIQUE NOT NULL,
+              platform VARCHAR(100) NOT NULL,
+              adapter_config JSONB NOT NULL,
+              settings JSONB NOT NULL DEFAULT '{}',
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            INSERT INTO tenants (slug, domain, platform, adapter_config)
+            VALUES ('mock-ci', 'localhost:3000', 'mock', '{}')
+            ON CONFLICT (domain) DO NOTHING;
+          "
+
       - name: UCP spec compliance check
         run: |
-          npm run build
           DATABASE_URL=postgresql://ucp:ucp@localhost:5432/ucp \
           REDIS_URL=redis://localhost:6379 \
           SECRET_KEY=ci_test_secret_key_at_least_32_characters \
+          LOG_LEVEL=error \
           node apps/server/dist/index.js &
           sleep 3
           npm run validate:ucp
