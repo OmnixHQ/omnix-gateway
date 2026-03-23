@@ -76,7 +76,7 @@ export class MagentoAdapter implements PlatformAdapter {
     try {
       const item = await this.get<MagentoProduct>(`/rest/V1/products/${encodeURIComponent(id)}`);
       return mapMagentoProduct(item, this.config.storeUrl);
-    } catch (err) {
+    } catch (err: unknown) {
       if (err instanceof AdapterError && err.statusCode === 404) {
         throw notFound('PRODUCT_NOT_FOUND', id);
       }
@@ -171,7 +171,7 @@ export class MagentoAdapter implements PlatformAdapter {
         currency: order.base_currency_code,
         created_at_iso: order.created_at,
       };
-    } catch (err) {
+    } catch (err: unknown) {
       if (err instanceof AdapterError && err.statusCode === 404) {
         throw notFound('ORDER_NOT_FOUND', id);
       }

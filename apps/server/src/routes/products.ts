@@ -57,7 +57,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
       try {
         const product = await request.adapter.getProduct(request.params.id);
         return product;
-      } catch (err) {
+      } catch (err: unknown) {
         if (err instanceof AdapterError && err.code === 'PRODUCT_NOT_FOUND') {
           return reply.status(404).send({
             messages: [{ type: 'error', code: 'PRODUCT_NOT_FOUND', content: err.message, severity: 'recoverable' }],

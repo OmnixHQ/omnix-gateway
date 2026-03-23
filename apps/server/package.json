@@ -13,7 +13,7 @@
     "test": "vitest run",
     "test:live": "RUN_LIVE_TESTS=true vitest run src/__tests__/live-magento.test.ts",
     "test:watch": "vitest",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -b",
     "clean": "rm -rf dist *.tsbuildinfo",
     "db:migrate": "drizzle-kit migrate",
     "db:generate": "drizzle-kit generate"

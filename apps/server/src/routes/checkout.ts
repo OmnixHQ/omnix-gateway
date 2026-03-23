@@ -175,7 +175,7 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
         });
 
         return sendPublic(reply, 200, completed ?? session);
-      } catch (err) {
+      } catch (err: unknown) {
         if (err instanceof EscalationRequiredError) {
           const escalated = await sessionStore.update(request.params.id, {
             status: 'requires_escalation',
@@ -224,7 +224,7 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       try {
         const order = await request.adapter.getOrder(request.params.id);
         return reply.status(200).send(order);
-      } catch (err) {
+      } catch (err: unknown) {
         if (err instanceof AdapterError && err.code === 'ORDER_NOT_FOUND') {
           return sendSessionError(reply, 'missing', `Order not found: ${request.params.id}`, 404);
         }
