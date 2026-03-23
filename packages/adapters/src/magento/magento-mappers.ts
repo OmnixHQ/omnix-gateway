@@ -1,4 +1,4 @@
-import type { Product, Cart, LineItem, Total, Order, PostalAddress } from '@ucp-middleware/core';
+import type { Product, Cart, LineItem, Total, Order, PostalAddress } from '@ucp-gateway/core';
 import type { MagentoProduct, MagentoCartItem, MagentoTotals } from './magento-types.js';
 import { dollarsToCents } from '../shared/price.js';
 

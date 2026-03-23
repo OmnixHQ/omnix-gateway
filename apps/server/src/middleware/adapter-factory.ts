@@ -1,5 +1,5 @@
-import type { PlatformAdapter } from '@ucp-middleware/core';
-import { MockAdapter, MagentoAdapter, ShopwareAdapter } from '@ucp-middleware/adapters';
+import type { PlatformAdapter } from '@ucp-gateway/core';
+import { MockAdapter, MagentoAdapter, ShopwareAdapter } from '@ucp-gateway/adapters';
 
 export function createAdapterForTenant(platform: string, adapterConfig: unknown): PlatformAdapter {
   const config = adapterConfig as Record<string, string>;

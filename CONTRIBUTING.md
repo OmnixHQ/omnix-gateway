@@ -31,8 +31,8 @@ Sign the CLA by opening a PR and adding your name to `CLA.md` in the contributor
 1. **Fork** the repository on GitHub.
 2. **Clone** your fork:
    ```bash
-   git clone git@github.com:<your-handle>/ucp-middleware.git
-   cd ucp-middleware
+   git clone git@github.com:<your-handle>/ucp-gateway.git
+   cd ucp-gateway
    ```
 3. **Install** dependencies:
    ```bash

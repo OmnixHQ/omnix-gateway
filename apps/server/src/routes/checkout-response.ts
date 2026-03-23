@@ -1,4 +1,4 @@
-import type { CheckoutSession, CheckoutLink } from '@ucp-middleware/core';
+import type { CheckoutSession, CheckoutLink } from '@ucp-gateway/core';
 
 const UCP_VERSION = '2026-01-23';
 

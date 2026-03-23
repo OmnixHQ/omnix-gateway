@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { AdapterError } from '@ucp-middleware/core';
+import { AdapterError } from '@ucp-gateway/core';
 
 const searchQuerySchema = z.object({
   q: z.string().min(1, 'q is required'),

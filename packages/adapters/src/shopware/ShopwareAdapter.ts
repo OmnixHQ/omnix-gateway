@@ -9,8 +9,8 @@ import type {
   SearchQuery,
   Total,
   UCPProfile,
-} from '@ucp-middleware/core';
-import { AdapterError, notFound } from '@ucp-middleware/core';
+} from '@ucp-gateway/core';
+import { AdapterError, notFound } from '@ucp-gateway/core';
 import type {
   ShopwareCartResponse,
   ShopwareConfig,

@@ -1,8 +1,8 @@
 /**
- * @ucp-middleware/adapters
+ * @ucp-gateway/adapters
  *
  * Platform-specific adapter implementations.
- * Each adapter implements PlatformAdapter from @ucp-middleware/core.
+ * Each adapter implements PlatformAdapter from @ucp-gateway/core.
  */
 
 export { MockAdapter } from './mock/MockAdapter.js';

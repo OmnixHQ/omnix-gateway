@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
 import type { AwilixContainer } from 'awilix';
 import type { Cradle } from '../container/index.js';
-import type { Tenant, PlatformAdapter } from '@ucp-middleware/core';
+import type { Tenant, PlatformAdapter } from '@ucp-gateway/core';
 import { createAdapterForTenant } from './adapter-factory.js';
 
 const CACHE_TTL_SECONDS = 300;
