@@ -669,19 +669,3 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
   });
 }
 
-async function calculateTotalsWithFallback(
-  request: FastifyRequest,
-  session: CheckoutSession,
-  shippingAddress: z.infer<typeof postalAddressSchema>,
-): Promise<unknown> {
-  const cartId = session.cart_id;
-  if (!cartId) return null;
-
-  try {
-    return await request.adapter.calculateTotals(cartId, {
-      shipping_address: shippingAddress,
-    });
-  } catch {
-    return null;
-  }
-}
