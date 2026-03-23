@@ -42,7 +42,8 @@ describe('Integration: MockAdapter endpoints', () => {
       expect(ucp['version']).toBe('2026-01-23');
       expect(ucp).toHaveProperty('services');
       expect(ucp).toHaveProperty('capabilities');
-      expect(ucp).toHaveProperty('payment_handlers');
+      expect(Array.isArray(ucp['capabilities'])).toBe(true);
+      expect(body).toHaveProperty('payment');
       expect(body).toHaveProperty('signing_keys');
     });
   });

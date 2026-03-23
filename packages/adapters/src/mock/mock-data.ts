@@ -4,20 +4,36 @@ export const MOCK_PROFILE: UCPProfile = {
   ucp: {
     version: '2026-01-23',
     services: {
-      'dev.ucp.shopping': [
-        {
-          version: '2026-01-23',
-          spec: 'https://ucp.dev/latest/specification/checkout/',
-          endpoint: '/checkout-sessions',
+      'dev.ucp.shopping': {
+        version: '2026-01-23',
+        spec: 'https://ucp.dev/latest/specification/checkout/',
+        rest: {
           schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
-          transport: 'rest',
+          endpoint: 'http://localhost:3000',
         },
-      ],
+      },
     },
-    capabilities: {
-      'dev.ucp.shopping.checkout': [{ version: '2026-01-23' }],
-    },
-    payment_handlers: {},
+    capabilities: [
+      {
+        name: 'dev.ucp.shopping.checkout',
+        version: '2026-01-23',
+        spec: 'https://ucp.dev/latest/specification/checkout/',
+        schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
+      },
+    ],
+  },
+  payment: {
+    handlers: [
+      {
+        id: 'mock_payment_handler',
+        name: 'dev.ucp.mock_payment',
+        version: '2026-01-23',
+        spec: 'https://ucp.dev/latest/specification/overview/',
+        config_schema: 'https://ucp.dev/latest/specification/overview/',
+        instrument_schemas: [],
+        config: {},
+      },
+    ],
   },
   signing_keys: [],
 };

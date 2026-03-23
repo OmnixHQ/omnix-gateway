@@ -45,20 +45,23 @@ export class MagentoAdapter implements PlatformAdapter {
       ucp: {
         version: '2026-01-23',
         services: {
-          'dev.ucp.shopping': [
-            {
-              version: '2026-01-23',
-              spec: 'https://ucp.dev/latest/specification/checkout/',
-              endpoint: '/checkout-sessions',
+          'dev.ucp.shopping': {
+            version: '2026-01-23',
+            spec: 'https://ucp.dev/latest/specification/checkout/',
+            rest: {
               schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
-              transport: 'rest',
+              endpoint: this.config.storeUrl,
             },
-          ],
+          },
         },
-        capabilities: {
-          'dev.ucp.shopping.checkout': [{ version: '2026-01-23' }],
-        },
-        payment_handlers: {},
+        capabilities: [
+          {
+            name: 'dev.ucp.shopping.checkout',
+            version: '2026-01-23',
+            spec: 'https://ucp.dev/latest/specification/checkout/',
+            schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
+          },
+        ],
       },
       signing_keys: [],
     };
