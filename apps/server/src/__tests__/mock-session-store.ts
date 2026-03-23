@@ -24,6 +24,7 @@ export class MockSessionStore {
       shipping_address: null,
       billing_address: null,
       order: null,
+      fulfillment: null,
       continue_url: null,
       messages: [],
       escalation: null,

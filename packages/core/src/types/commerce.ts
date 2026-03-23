@@ -168,3 +168,51 @@ export interface UCPMessage {
   readonly path?: string | undefined;
   readonly content_type?: 'plain' | 'markdown' | undefined;
 }
+
+/* ---------------------------------------------------------------------------
+ * Fulfillment extension types
+ * Spec: https://ucp.dev/latest/specification/fulfillment/
+ * ------------------------------------------------------------------------- */
+
+export interface FulfillmentDestination {
+  readonly id: string;
+  readonly full_name?: string | undefined;
+  readonly address_country?: string | undefined;
+  readonly address?: PostalAddress | undefined;
+  readonly street_address?: string | undefined;
+  readonly address_locality?: string | undefined;
+  readonly address_region?: string | undefined;
+  readonly postal_code?: string | undefined;
+}
+
+export interface FulfillmentOptionTotal {
+  readonly type: string;
+  readonly amount: number;
+}
+
+export interface FulfillmentOption {
+  readonly id: string;
+  readonly title: string;
+  readonly description?: string | undefined;
+  readonly totals: readonly FulfillmentOptionTotal[];
+}
+
+export interface FulfillmentGroup {
+  readonly id: string;
+  readonly line_item_ids: readonly string[];
+  readonly options?: readonly FulfillmentOption[] | undefined;
+  readonly selected_option_id?: string | undefined;
+}
+
+export interface FulfillmentMethod {
+  readonly id: string;
+  readonly type: string;
+  readonly line_item_ids: readonly string[];
+  readonly destinations?: readonly FulfillmentDestination[] | undefined;
+  readonly selected_destination_id?: string | undefined;
+  readonly groups: readonly FulfillmentGroup[];
+}
+
+export interface Fulfillment {
+  readonly methods: readonly FulfillmentMethod[];
+}

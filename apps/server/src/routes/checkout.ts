@@ -11,6 +11,11 @@ import {
   storeIdempotencyRecord,
 } from './checkout-helpers.js';
 import { toPublicCheckoutResponse } from './checkout-response.js';
+import {
+  buildFulfillmentForCreate,
+  buildFulfillmentForUpdate,
+  computeTotalsWithFulfillment,
+} from './fulfillment.js';
 
 /* ---------------------------------------------------------------------------
  * Request-validation schemas
@@ -59,6 +64,31 @@ const paymentSchema = z
   .passthrough()
   .optional();
 
+const fulfillmentSchema = z
+  .object({
+    methods: z
+      .array(
+        z
+          .object({
+            id: z.string().optional(),
+            type: z.string().optional(),
+            destinations: z.array(z.record(z.unknown())).optional(),
+            selected_destination_id: z.string().optional(),
+            groups: z
+              .array(
+                z
+                  .object({ id: z.string().optional(), selected_option_id: z.string().optional() })
+                  .passthrough(),
+              )
+              .optional(),
+          })
+          .passthrough(),
+      )
+      .optional(),
+  })
+  .passthrough()
+  .optional();
+
 const createSessionSchema = z.object({
   line_items: z.array(lineItemSchema),
   currency: z.string().optional(),
@@ -74,11 +104,12 @@ const createSessionSchema = z.object({
     })
     .optional(),
   payment: paymentSchema,
+  fulfillment: fulfillmentSchema,
 });
 
 const updateSessionSchema = z.object({
   id: z.string().optional(),
-  line_items: z.array(lineItemSchema),
+  line_items: z.array(lineItemSchema).optional(),
   currency: z.string().optional(),
   buyer: BuyerClassSchema.extend({
     shipping_address: postalAddressSchema.optional(),
@@ -92,6 +123,7 @@ const updateSessionSchema = z.object({
     })
     .optional(),
   payment: paymentSchema,
+  fulfillment: fulfillmentSchema,
 });
 
 const completeSessionSchema = z.object({
@@ -133,15 +165,41 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
     const session = await sessionStore.create(request.tenant.id);
 
     const updateFields: Record<string, unknown> = {};
-    updateFields['line_items'] = parsed.data.line_items.map((li, index) => ({
+    const lineItems = parsed.data.line_items.map((li, index) => ({
       id: `li-${index}`,
       item: li.item,
       quantity: li.quantity,
       totals: [],
     }));
+    updateFields['line_items'] = lineItems;
     if (parsed.data.currency) updateFields['currency'] = parsed.data.currency;
     if (parsed.data.buyer) updateFields['buyer'] = parsed.data.buyer;
     if (parsed.data.payment) updateFields['payment'] = parsed.data.payment;
+
+    // Process fulfillment extension on create
+    if (parsed.data.fulfillment) {
+      const buyerEmail = parsed.data.buyer?.email ?? undefined;
+      const fulfillment = buildFulfillmentForCreate(
+        parsed.data.fulfillment as Record<string, unknown>,
+        lineItems,
+        buyerEmail,
+      );
+      if (fulfillment) {
+        updateFields['fulfillment'] = fulfillment;
+        const totals = computeTotalsWithFulfillment(
+          { ...session, line_items: lineItems, fulfillment } as CheckoutSession,
+          fulfillment,
+        );
+        updateFields['totals'] = totals;
+        // If fulfillment option is selected, mark ready
+        const hasSelectedOption = fulfillment.methods.some((m) =>
+          m.groups.some((g) => g.selected_option_id),
+        );
+        if (hasSelectedOption) {
+          updateFields['status'] = 'ready_for_complete';
+        }
+      }
+    }
 
     const result =
       Object.keys(updateFields).length > 0
@@ -185,7 +243,7 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
         return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
       if (isSessionExpired(session))
         return sendSessionError(reply, 'SESSION_EXPIRED', 'Checkout session has expired', 410);
-      if (session.status !== 'incomplete')
+      if (session.status !== 'incomplete' && session.status !== 'ready_for_complete')
         return sendSessionError(
           reply,
           'INVALID_SESSION_STATE',
@@ -212,7 +270,33 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
           updateData['billing_address'] = parsed.data.buyer.billing_address;
       }
 
-      if (updateData['shipping_address']) {
+      // Process fulfillment extension
+      if (parsed.data.fulfillment) {
+        const fulfillment = buildFulfillmentForUpdate(
+          parsed.data.fulfillment as Record<string, unknown>,
+          session,
+        );
+        if (fulfillment) {
+          updateData['fulfillment'] = fulfillment;
+          const effectiveSession: CheckoutSession = {
+            ...session,
+            ...(updateData['line_items']
+              ? { line_items: updateData['line_items'] as CheckoutSession['line_items'] }
+              : {}),
+            fulfillment,
+          };
+          const totals = computeTotalsWithFulfillment(effectiveSession, fulfillment);
+          updateData['totals'] = totals;
+
+          // Mark ready if an option is selected
+          const hasSelectedOption = fulfillment.methods.some((m) =>
+            m.groups.some((g) => g.selected_option_id),
+          );
+          if (hasSelectedOption) {
+            updateData['status'] = 'ready_for_complete';
+          }
+        }
+      } else if (updateData['shipping_address']) {
         const totals = await calculateTotalsWithFallback(
           request,
           session,

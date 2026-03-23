@@ -1,4 +1,80 @@
-import type { Product, UCPProfile } from '@ucp-gateway/core';
+import type { Product, UCPProfile, FulfillmentDestination } from '@ucp-gateway/core';
+
+/* ---------------------------------------------------------------------------
+ * Mock customer / address data (mirrors test_data CSVs)
+ * ------------------------------------------------------------------------- */
+
+export interface MockCustomer {
+  readonly id: string;
+  readonly name: string;
+  readonly email: string;
+}
+
+export const MOCK_CUSTOMERS: readonly MockCustomer[] = [
+  { id: 'cust_1', name: 'John Doe', email: 'john.doe@example.com' },
+  { id: 'cust_2', name: 'Jane Smith', email: 'jane.smith@example.com' },
+  { id: 'cust_3', name: 'Jane Doe', email: 'jane.doe@example.com' },
+];
+
+export interface MockAddress {
+  readonly id: string;
+  readonly customer_id: string;
+  readonly street_address: string;
+  readonly city: string;
+  readonly state: string;
+  readonly postal_code: string;
+  readonly country: string;
+}
+
+export const MOCK_ADDRESSES: readonly MockAddress[] = [
+  {
+    id: 'addr_1',
+    customer_id: 'cust_1',
+    street_address: '123 Main St',
+    city: 'Springfield',
+    state: 'IL',
+    postal_code: '62704',
+    country: 'US',
+  },
+  {
+    id: 'addr_2',
+    customer_id: 'cust_1',
+    street_address: '456 Oak Ave',
+    city: 'Metropolis',
+    state: 'NY',
+    postal_code: '10012',
+    country: 'US',
+  },
+  {
+    id: 'addr_3',
+    customer_id: 'cust_2',
+    street_address: '789 Pine Ln',
+    city: 'Smallville',
+    state: 'KS',
+    postal_code: '66002',
+    country: 'US',
+  },
+];
+
+/** Items eligible for free shipping regardless of order value. */
+export const FREE_SHIPPING_ITEM_IDS: readonly string[] = ['bouquet_roses'];
+
+/** Order subtotal threshold (in cents) above which standard shipping is free. */
+export const FREE_SHIPPING_THRESHOLD_CENTS = 10000;
+
+/**
+ * Convert a MockAddress to a FulfillmentDestination.
+ */
+export function toFulfillmentDestination(addr: MockAddress): FulfillmentDestination {
+  return {
+    id: addr.id,
+    street_address: addr.street_address,
+    address_locality: addr.city,
+    address_region: addr.state,
+    postal_code: addr.postal_code,
+    address_country: addr.country,
+  };
+}
 
 export const MOCK_PROFILE: UCPProfile = {
   ucp: {
@@ -19,6 +95,13 @@ export const MOCK_PROFILE: UCPProfile = {
         version: '2026-01-23',
         spec: 'https://ucp.dev/latest/specification/checkout/',
         schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
+      },
+      {
+        name: 'dev.ucp.shopping.fulfillment',
+        version: '2026-01-23',
+        spec: 'https://ucp.dev/latest/specification/fulfillment/',
+        schema: 'https://ucp.dev/2026-01-23/schemas/shopping/fulfillment.json',
+        extends: 'dev.ucp.shopping.checkout',
       },
     ],
   },

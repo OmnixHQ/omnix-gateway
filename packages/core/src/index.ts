@@ -27,6 +27,12 @@ export type {
   CheckoutLink,
   OrderConfirmation,
   UCPMessage,
+  FulfillmentDestination,
+  FulfillmentOptionTotal,
+  FulfillmentOption,
+  FulfillmentGroup,
+  FulfillmentMethod,
+  Fulfillment,
 } from './types/commerce.js';
 
 export { AdapterError, notFound, outOfStock, EscalationRequiredError } from './types/errors.js';

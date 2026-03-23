@@ -43,13 +43,23 @@ function buildRawResponse(session: CheckoutSession): Record<string, unknown> {
     continue_url: session.continue_url,
     messages: session.messages,
     expires_at: session.expires_at,
+    fulfillment: session.fulfillment ?? undefined,
     payment: {
       handlers: [],
       instruments: [],
     },
     ucp: {
       version: UCP_VERSION,
-      capabilities: [{ name: 'dev.ucp.shopping.checkout', version: UCP_VERSION }],
+      capabilities: [
+        { name: 'dev.ucp.shopping.checkout', version: UCP_VERSION },
+        {
+          name: 'dev.ucp.shopping.fulfillment',
+          version: UCP_VERSION,
+          spec: 'https://ucp.dev/latest/specification/fulfillment/',
+          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/fulfillment.json',
+          extends: 'dev.ucp.shopping.checkout',
+        },
+      ],
     },
   };
 }

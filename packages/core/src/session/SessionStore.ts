@@ -7,6 +7,7 @@ import type {
   OrderConfirmation,
   Buyer,
   UCPMessage,
+  Fulfillment,
 } from '../types/commerce.js';
 import type { EscalationDetails } from '../types/errors.js';
 
@@ -46,6 +47,7 @@ export interface CheckoutSession {
   readonly order: OrderConfirmation | null;
   readonly continue_url: string | null;
   readonly messages: readonly UCPMessage[];
+  readonly fulfillment: Fulfillment | null;
   readonly escalation: EscalationDetails | null;
   readonly idempotency_key: string | null;
   readonly expires_at: string;
@@ -86,6 +88,7 @@ export class SessionStore {
       shipping_address: null,
       billing_address: null,
       order: null,
+      fulfillment: null,
       continue_url: null,
       messages: [],
       escalation: null,
