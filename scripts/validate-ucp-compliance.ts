@@ -126,7 +126,19 @@ async function runChecks(): Promise<void> {
     method: 'POST',
     url: `/checkout-sessions/${sidC}/complete`,
     headers: JA,
-    body: JSON.stringify({ payment: { token: 'tok', provider: 'mock' } }),
+    body: JSON.stringify({
+      payment: {
+        instruments: [
+          {
+            id: 'inst-1',
+            handler_id: 'mock',
+            type: 'card',
+            selected: true,
+            credential: { type: 'tok_test' },
+          },
+        ],
+      },
+    }),
   });
   const cmplOk = cmpl.statusCode === 200;
   const cmplPlatformErr =
@@ -413,7 +425,13 @@ async function runChecks(): Promise<void> {
     method: 'POST',
     url: `/checkout-sessions/${sidX}/complete`,
     headers: JA,
-    body: JSON.stringify({ payment: { token: 'x', provider: 'x' } }),
+    body: JSON.stringify({
+      payment: {
+        instruments: [
+          { id: 'inst-1', handler_id: 'mock', type: 'card', credential: { type: 'x' } },
+        ],
+      },
+    }),
   });
   check('ER-07 409 for invalid state', bad.statusCode === 409, `${bad.statusCode}`);
   check('ER-08 409 body has messages', Array.isArray(json(bad)['messages']), '');
