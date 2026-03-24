@@ -97,10 +97,11 @@ echo ""
 echo "5. Generating admin token..."
 RAW_TOKEN=$(curl -s -X POST "${MAGENTO_URL}/rest/V1/integration/admin/token" \
   -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
   -d '{"username":"admin","password":"magentorocks1"}')
-TOKEN=$(echo "$RAW_TOKEN" | tr -d '"' | grep -oE '^[a-zA-Z0-9]+$' | tail -1)
+TOKEN=$(echo "$RAW_TOKEN" | tr -d '"\n\r ' | grep -oE '[a-zA-Z0-9]{20,}' | head -1)
 
-if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+if [ -z "$TOKEN" ]; then
   echo "ERROR: Failed to get admin token. Raw response:"
   echo "$RAW_TOKEN" | head -5
   exit 1
