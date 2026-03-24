@@ -22,7 +22,7 @@ All contributors must follow our [Code of Conduct](CODE_OF_CONDUCT.md). By parti
 
 ## Contributor License Agreement
 
-Before your first pull request can be merged, you must sign the [Contributor License Agreement](CLA.md). The CLA ensures that Momentum Group s. r. o. can continue to distribute the project under the BSL 1.1 license.
+Before your first pull request can be merged, you must sign the [Contributor License Agreement](CLA.md). The CLA ensures that Momentum Group s. r. o. can continue to distribute the project under the Elastic License 2.0.
 
 Sign the CLA by opening a PR and adding your name to `CLA.md` in the contributors section.
 

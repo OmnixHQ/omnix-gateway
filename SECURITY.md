@@ -13,7 +13,7 @@ Only the latest release of UCP Gateway is supported with security updates.
 
 If you discover a security vulnerability, please report it responsibly.
 
-**Email:** [security@getmomentum.today](mailto:security@getmomentum.today)
+**Email:** [momentum.group139@gmail.com](mailto:momentum.group139@gmail.com)
 
 Please include:
 

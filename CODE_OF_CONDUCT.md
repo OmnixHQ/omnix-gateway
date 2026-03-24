@@ -26,7 +26,7 @@ Examples of behavior that contributes to a positive environment:
 
 Instances of unacceptable behavior may be reported to the community leaders
 responsible for enforcement at
-[conduct@getmomentum.today](mailto:conduct@getmomentum.today).
+[momentum.group139@gmail.com](mailto:momentum.group139@gmail.com).
 
 All complaints will be reviewed and investigated promptly and fairly. Community
 leaders are obligated to respect the privacy and security of the reporter.
