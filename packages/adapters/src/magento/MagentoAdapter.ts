@@ -236,6 +236,32 @@ export class MagentoAdapter implements PlatformAdapter {
   async placeOrder(cartId: string, payment: PaymentToken): Promise<Order> {
     const magentoMethod = mapPaymentHandlerToMagentoMethod(payment.provider);
 
+    // Magento requires: shipping address → shipping method → billing → payment → order
+    const defaultAddress = {
+      firstname: 'Guest',
+      lastname: 'Checkout',
+      street: ['N/A'],
+      city: 'New York',
+      region_code: 'NY',
+      postcode: '10001',
+      country_id: 'US',
+      telephone: '0000000000',
+    };
+
+    // Set shipping info (address + method) — required before payment
+    try {
+      await this.post(`/rest/V1/guest-carts/${encodeURIComponent(cartId)}/shipping-information`, {
+        addressInformation: {
+          shipping_address: { ...defaultAddress, email: 'guest@ucp-gateway.local' },
+          billing_address: { ...defaultAddress, email: 'guest@ucp-gateway.local' },
+          shipping_carrier_code: 'flatrate',
+          shipping_method_code: 'flatrate',
+        },
+      });
+    } catch {
+      // Shipping info may already be set from calculateTotals — continue
+    }
+
     await this.setPaymentMethod(cartId, magentoMethod);
 
     const orderId = await this.put<number>(

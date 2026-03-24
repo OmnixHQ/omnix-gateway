@@ -309,6 +309,28 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
     const lineItems = enrichedItems;
     updateFields['line_items'] = lineItems;
 
+    // Create platform cart and add items
+    try {
+      const cart = await request.adapter.createCart();
+      updateFields['cart_id'] = cart.id;
+
+      const cartLineItems = parsed.data.line_items.map((li) => ({
+        product_id: li.item.id,
+        title: li.item.id,
+        quantity: li.quantity,
+        unit_price_cents: 0,
+      }));
+      await request.adapter.addToCart(cart.id, cartLineItems);
+    } catch (err: unknown) {
+      const errMsg =
+        err instanceof Error && 'statusCode' in err
+          ? `[${(err as Error & { code: string }).code}] ${err.message}`
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      app.log.warn('Platform cart error (cart_id may still be set): %s', errMsg);
+    }
+
     // Compute totals from enriched items (no discounts on create)
     const { totals: baseTotals } = computeBaseTotals(lineItems, undefined, 0);
     updateFields['totals'] = baseTotals;

@@ -63,8 +63,8 @@ export async function httpDelete<T>(config: HttpClientConfig, path: string): Pro
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
   if (!response.ok) {
-    const text = await response.text();
     if (response.status === 404) {
       throw new AdapterError('PRODUCT_NOT_FOUND', `API 404: ${text}`, 404);
     }
@@ -74,5 +74,13 @@ async function handleResponse<T>(response: Response): Promise<T> {
       response.status,
     );
   }
-  return (await response.json()) as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new AdapterError(
+      'PLATFORM_ERROR',
+      `Invalid JSON (status=${response.status}) from ${response.url}: ${text.slice(0, 500)}`,
+      500,
+    );
+  }
 }
