@@ -82,3 +82,25 @@ export interface MagentoOrderResponse {
   readonly base_currency_code: string;
   readonly created_at: string;
 }
+
+export interface MagentoShippingMethod {
+  readonly carrier_code: string;
+  readonly method_code: string;
+  readonly carrier_title: string;
+  readonly method_title: string;
+  readonly amount: number;
+  readonly base_amount: number;
+  readonly available: boolean;
+  readonly price_excl_tax: number;
+  readonly price_incl_tax: number;
+}
+
+export interface MagentoTotalsResponse {
+  readonly subtotal: number;
+  readonly grand_total: number;
+  readonly shipping_amount: number;
+  readonly tax_amount: number;
+  readonly discount_amount: number;
+  readonly base_currency_code: string;
+  readonly coupon_code?: string | null;
+}

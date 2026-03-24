@@ -9,15 +9,20 @@ import type {
   Total,
   PaymentToken,
   Order,
+  Fulfillment,
+  FulfillmentDestination,
 } from '@ucp-gateway/core';
 import { AdapterError, notFound } from '@ucp-gateway/core';
-import { httpGet, httpPost } from '../shared/http-client.js';
+import type { HttpClientConfig } from '../shared/http-client.js';
+import { httpGet, httpPost, httpPut, httpDelete } from '../shared/http-client.js';
 import {
   mapMagentoProduct,
   mapMagentoCartItems,
-  mapMagentoTotals,
   mapMagentoOrder,
   buildMagentoShippingAddress,
+  mapShippingMethodsToFulfillment,
+  mapMagentoTotalsWithDiscount,
+  mapPaymentHandlerToMagentoMethod,
 } from './magento-mappers.js';
 import type {
   MagentoAdapterConfig,
@@ -26,6 +31,8 @@ import type {
   MagentoProduct,
   MagentoCartItem,
   MagentoShippingInfoResponse,
+  MagentoShippingMethod,
+  MagentoTotalsResponse,
 } from './magento-types.js';
 
 export type { MagentoAdapterConfig } from './magento-types.js';
@@ -118,13 +125,81 @@ export class MagentoAdapter implements PlatformAdapter {
     return mapMagentoCartItems(cartId, allItems);
   }
 
+  /* -----------------------------------------------------------------------
+   * Fulfillment — Real Shipping Methods
+   * --------------------------------------------------------------------- */
+
+  async getFulfillmentOptions(
+    cartId: string,
+    destination: FulfillmentDestination,
+  ): Promise<Fulfillment> {
+    const address = buildEstimateAddress(destination);
+    const methods = await this.post<readonly MagentoShippingMethod[]>(
+      `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/estimate-shipping-methods`,
+      { address },
+    );
+
+    return mapShippingMethodsToFulfillment(methods);
+  }
+
+  async setShippingMethod(cartId: string, carrierCode: string, methodCode: string): Promise<void> {
+    const defaultAddress = {
+      firstname: 'Guest',
+      lastname: 'Checkout',
+      street: ['123 Main St'],
+      city: 'New York',
+      postcode: '10001',
+      region_code: 'NY',
+      country_id: 'US',
+      telephone: '0000000000',
+    };
+
+    await this.post<MagentoShippingInfoResponse>(
+      `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/shipping-information`,
+      {
+        addressInformation: {
+          shipping_address: defaultAddress,
+          billing_address: defaultAddress,
+          shipping_carrier_code: carrierCode,
+          shipping_method_code: methodCode,
+        },
+      },
+    );
+  }
+
+  /* -----------------------------------------------------------------------
+   * Discount — Coupon Codes
+   * --------------------------------------------------------------------- */
+
+  async applyCoupon(cartId: string, code: string): Promise<boolean> {
+    try {
+      return await this.put<boolean>(
+        `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/coupons/${encodeURIComponent(code)}`,
+        {},
+      );
+    } catch (err: unknown) {
+      if (err instanceof AdapterError && err.statusCode === 404) {
+        throw new AdapterError('PLATFORM_ERROR', `Invalid coupon code: ${code}`, 404);
+      }
+      throw err;
+    }
+  }
+
+  async removeCoupon(cartId: string): Promise<boolean> {
+    return this.delete<boolean>(`/rest/V1/guest-carts/${encodeURIComponent(cartId)}/coupons`);
+  }
+
+  /* -----------------------------------------------------------------------
+   * Calculate Totals (with shipping context + discount support)
+   * --------------------------------------------------------------------- */
+
   async calculateTotals(cartId: string, ctx: CheckoutContext): Promise<readonly Total[]> {
     const shippingAddress = buildMagentoShippingAddress(ctx.shipping_address);
     const billingAddress = ctx.billing_address
       ? buildMagentoShippingAddress(ctx.billing_address)
       : shippingAddress;
 
-    const response = await this.post<MagentoShippingInfoResponse>(
+    await this.post<MagentoShippingInfoResponse>(
       `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/shipping-information`,
       {
         addressInformation: {
@@ -138,7 +213,11 @@ export class MagentoAdapter implements PlatformAdapter {
 
     await this.setBillingAddressWithEmail(cartId, billingAddress);
 
-    return mapMagentoTotals(response.totals);
+    const totals = await this.get<MagentoTotalsResponse>(
+      `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/totals`,
+    );
+
+    return mapMagentoTotalsWithDiscount(totals);
   }
 
   private async setBillingAddressWithEmail(
@@ -150,15 +229,65 @@ export class MagentoAdapter implements PlatformAdapter {
     });
   }
 
-  async placeOrder(cartId: string, _payment: PaymentToken): Promise<Order> {
+  /* -----------------------------------------------------------------------
+   * Place Order (with payment method mapping + failure handling)
+   * --------------------------------------------------------------------- */
+
+  /**
+   * Place an order on Magento.
+   * Magento requires: shipping address -> shipping method -> billing -> payment -> order.
+   */
+  async placeOrder(cartId: string, payment: PaymentToken): Promise<Order> {
+    const magentoMethod = mapPaymentHandlerToMagentoMethod(payment.provider);
+
+    const defaultAddress = {
+      firstname: 'Guest',
+      lastname: 'Checkout',
+      street: ['N/A'],
+      city: 'New York',
+      region_code: 'NY',
+      postcode: '10001',
+      country_id: 'US',
+      telephone: '0000000000',
+    };
+
+    try {
+      await this.post(`/rest/V1/guest-carts/${encodeURIComponent(cartId)}/shipping-information`, {
+        addressInformation: {
+          shipping_address: { ...defaultAddress, email: 'guest@ucp-gateway.local' },
+          billing_address: { ...defaultAddress, email: 'guest@ucp-gateway.local' },
+          shipping_carrier_code: 'flatrate',
+          shipping_method_code: 'flatrate',
+        },
+      });
+    } catch {
+      // NOTE: Shipping info may already be set from calculateTotals — continue
+    }
+
+    await this.setPaymentMethod(cartId, magentoMethod);
+
     const orderId = await this.put<number>(
       `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/order`,
       {
-        paymentMethod: { method: 'checkmo' },
+        paymentMethod: { method: magentoMethod },
       },
     );
 
     return mapMagentoOrder(String(orderId), 0, 'USD');
+  }
+
+  private async setPaymentMethod(cartId: string, method: string): Promise<void> {
+    try {
+      await this.put<string>(
+        `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/selected-payment-method`,
+        { method: { method } },
+      );
+    } catch (err: unknown) {
+      if (err instanceof AdapterError && err.statusCode === 400) {
+        throw new AdapterError('INVALID_PAYMENT', `Unsupported payment method: ${method}`, 402);
+      }
+      throw err;
+    }
   }
 
   async getOrder(id: string): Promise<Order> {
@@ -185,6 +314,10 @@ export class MagentoAdapter implements PlatformAdapter {
     }
   }
 
+  /* -----------------------------------------------------------------------
+   * HTTP helpers
+   * --------------------------------------------------------------------- */
+
   private async get<T>(path: string): Promise<T> {
     return httpGet<T>(this.httpConfig(), path);
   }
@@ -194,31 +327,14 @@ export class MagentoAdapter implements PlatformAdapter {
   }
 
   private async put<T>(path: string, body: unknown): Promise<T> {
-    const url = `${this.config.storeUrl}${path}`;
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${this.config.apiKey}`,
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10_000),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new AdapterError(
-        'PLATFORM_ERROR',
-        `Magento API error ${response.status}: ${text}`,
-        response.status,
-      );
-    }
-
-    return (await response.json()) as T;
+    return httpPut<T>(this.httpConfig(), path, body);
   }
 
-  private httpConfig() {
+  private async delete<T>(path: string): Promise<T> {
+    return httpDelete<T>(this.httpConfig(), path);
+  }
+
+  private httpConfig(): HttpClientConfig {
     return {
       baseUrl: this.config.storeUrl,
       headers: {
@@ -237,6 +353,17 @@ function buildSearchCriteriaParams(query: string, limit: number, page: number): 
   params.set('searchCriteria[pageSize]', String(limit));
   params.set('searchCriteria[currentPage]', String(page));
   return params;
+}
+
+function buildEstimateAddress(destination: FulfillmentDestination): Record<string, unknown> {
+  const addr = destination.address;
+  return {
+    country_id: destination.address_country ?? addr?.address_country ?? 'US',
+    postcode: destination.postal_code ?? addr?.postal_code ?? '10001',
+    region_code: destination.address_region ?? addr?.address_region ?? '',
+    city: destination.address_locality ?? addr?.address_locality ?? '',
+    street: addr?.street_address ? [addr.street_address] : [],
+  };
 }
 
 function mapMagentoOrderStatus(magentoStatus: string): Order['status'] {

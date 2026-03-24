@@ -9,7 +9,7 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build -w packages/core && npm run build -w packages/adapters && npm run build -w apps/server",
     "dev": "npm run dev -w apps/server",
     "test": "npm run test --workspaces --if-present",
     "lint": "eslint . --ext .ts,.tsx",
@@ -19,6 +19,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present && rm -rf node_modules",
     "validate:ucp": "node --experimental-transform-types scripts/validate-ucp-compliance.ts",
+    "test:e2e:magento": "bash tests/e2e-magento/run-e2e-checkout.sh",
+    "test:e2e:magento:setup": "bash tests/e2e-magento/setup-magento.sh && bash tests/e2e-magento/seed-tenant.sh",
     "postinstall": "npx patch-package"
   },
   "devDependencies": {

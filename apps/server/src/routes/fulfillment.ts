@@ -29,11 +29,6 @@ import {
   toFulfillmentDestination,
 } from '@ucp-gateway/adapters';
 
-/* ---------------------------------------------------------------------------
- * Deterministic address ID generation from address content.
- * No mutable state — IDs are derived from a hash of the address fields.
- * ------------------------------------------------------------------------- */
-
 function generateAddressId(dest: FulfillmentDestination): string {
   const key = JSON.stringify({
     street_address: dest.street_address ?? '',
@@ -45,10 +40,6 @@ function generateAddressId(dest: FulfillmentDestination): string {
   const hash = createHash('sha256').update(key).digest('hex').slice(0, 12);
   return `addr_${hash}`;
 }
-
-/* ---------------------------------------------------------------------------
- * Address resolution
- * ------------------------------------------------------------------------- */
 
 function findCustomerByEmail(email: string | undefined): string | undefined {
   if (!email) return undefined;
@@ -79,6 +70,18 @@ function matchExistingAddress(
   );
 }
 
+function assignAddressId(
+  dest: FulfillmentDestination,
+  stored: readonly FulfillmentDestination[],
+): FulfillmentDestination {
+  if (dest.id) return dest;
+
+  const matched = matchExistingAddress(dest, stored);
+  if (matched) return matched;
+
+  return { ...dest, id: generateAddressId(dest) };
+}
+
 /**
  * Process destinations from the client payload, assigning IDs to new addresses
  * and persisting them in the dynamic store.
@@ -90,24 +93,8 @@ function resolveDestinations(
   if (!clientDestinations || clientDestinations.length === 0) return undefined;
 
   const stored = getStoredAddresses(email);
-
-  return clientDestinations.map((dest) => {
-    // Already has an ID — use as-is
-    if (dest.id) return dest;
-
-    // Try content-match against stored addresses
-    const matched = matchExistingAddress(dest, stored);
-    if (matched) return matched;
-
-    // New address — assign deterministic ID from content hash
-    const newDest: FulfillmentDestination = { ...dest, id: generateAddressId(dest) };
-    return newDest;
-  });
+  return clientDestinations.map((dest) => assignAddressId(dest, stored));
 }
-
-/* ---------------------------------------------------------------------------
- * Shipping option generation
- * ------------------------------------------------------------------------- */
 
 function resolveItemPrice(itemId: string, storedPrice: number | undefined): number {
   if (storedPrice && storedPrice > 0) return storedPrice;
@@ -165,7 +152,6 @@ function generateShippingOptions(
     ];
   }
 
-  // International
   const stdCost = free ? 0 : 1000;
   const expCost = free ? 0 : 3000;
   return [
@@ -184,9 +170,14 @@ function generateShippingOptions(
   ];
 }
 
-/* ---------------------------------------------------------------------------
- * Public API: build fulfillment for create / update
- * ------------------------------------------------------------------------- */
+function resolveDestinationCountry(
+  selectedDestId: string | undefined,
+  destinations: readonly FulfillmentDestination[] | undefined,
+): string | undefined {
+  if (!selectedDestId || !destinations) return undefined;
+  const selectedDest = destinations.find((d) => d.id === selectedDestId);
+  return selectedDest?.address_country;
+}
 
 /**
  * Build an initial fulfillment object from a create-session request payload.
@@ -209,12 +200,7 @@ export function buildFulfillmentForCreate(
     const resolvedDests = resolveDestinations(clientDests, buyerEmail);
     const selectedDestId = m['selected_destination_id'] as string | undefined;
 
-    // Determine country for options
-    const selectedDest = selectedDestId
-      ? resolvedDests?.find((d) => d.id === selectedDestId)
-      : undefined;
-    const country = selectedDest?.address_country;
-
+    const country = resolveDestinationCountry(selectedDestId, resolvedDests);
     const options = country ? generateShippingOptions(country, lineItems) : undefined;
 
     const clientGroups = m['groups'] as readonly Record<string, unknown>[] | undefined;
@@ -242,6 +228,56 @@ export function buildFulfillmentForCreate(
   return { methods: builtMethods };
 }
 
+function resolveDestinationsForUpdate(
+  clientDests: readonly FulfillmentDestination[] | undefined,
+  methodType: string,
+  buyerEmail: string | undefined,
+  existingDestinations: readonly FulfillmentDestination[] | undefined,
+): readonly FulfillmentDestination[] | undefined {
+  if (clientDests && clientDests.length > 0) {
+    return resolveDestinations(clientDests, buyerEmail);
+  }
+
+  if (!clientDests && methodType === 'shipping') {
+    const stored = getStoredAddresses(buyerEmail);
+    return stored.length > 0 ? stored : undefined;
+  }
+
+  return existingDestinations;
+}
+
+function generateOptionsForSelectedDestination(
+  selectedDestId: string | undefined,
+  destinations: readonly FulfillmentDestination[] | undefined,
+  lineItems: readonly CheckoutSessionLineItem[],
+): readonly FulfillmentOption[] | undefined {
+  if (!selectedDestId || !destinations) return undefined;
+  const country = resolveDestinationCountry(selectedDestId, destinations);
+  if (!country) return undefined;
+  return generateShippingOptions(country, lineItems);
+}
+
+function mergeGroups(
+  clientGroups: readonly Record<string, unknown>[] | undefined,
+  existingGroups: readonly FulfillmentGroup[],
+  options: readonly FulfillmentOption[] | undefined,
+  lineItemIds: readonly string[],
+  idx: number,
+): readonly FulfillmentGroup[] {
+  const selectedOptionId =
+    (clientGroups?.[0]?.['selected_option_id'] as string | undefined) ??
+    existingGroups[0]?.selected_option_id;
+
+  return [
+    {
+      id: existingGroups[0]?.id ?? `group_${idx}`,
+      line_item_ids: lineItemIds,
+      options: options ?? existingGroups[0]?.options,
+      selected_option_id: selectedOptionId,
+    },
+  ];
+}
+
 /**
  * Merge an incoming fulfillment update with the existing session fulfillment.
  * Handles address injection, option generation, and option selection.
@@ -266,51 +302,22 @@ export function buildFulfillmentForUpdate(
     const methodId = (m['id'] as string) ?? existing?.id ?? `method_${idx}`;
     const methodType = (m['type'] as string) ?? existing?.type ?? 'shipping';
 
-    // Resolve destinations
     const clientDests = m['destinations'] as readonly FulfillmentDestination[] | undefined;
-    let destinations: readonly FulfillmentDestination[] | undefined;
+    const destinations = resolveDestinationsForUpdate(
+      clientDests,
+      methodType,
+      buyerEmail,
+      existing?.destinations,
+    );
 
-    if (clientDests && clientDests.length > 0) {
-      // Client provided destinations — resolve IDs
-      destinations = resolveDestinations(clientDests, buyerEmail);
-    } else if (!clientDests && methodType === 'shipping') {
-      // No destinations in payload — inject known customer addresses
-      const stored = getStoredAddresses(buyerEmail);
-      destinations = stored.length > 0 ? stored : undefined;
-    } else {
-      destinations = existing?.destinations;
-    }
-
-    // Selected destination
     const selectedDestId =
       (m['selected_destination_id'] as string | undefined) ?? existing?.selected_destination_id;
 
-    // Generate options if a destination is selected
-    let options: readonly FulfillmentOption[] | undefined;
-    if (selectedDestId && destinations) {
-      const selectedDest = destinations.find((d) => d.id === selectedDestId);
-      const country = selectedDest?.address_country;
-      if (country) {
-        options = generateShippingOptions(country, lineItems);
-      }
-    }
+    const options = generateOptionsForSelectedDestination(selectedDestId, destinations, lineItems);
 
-    // Merge groups
     const clientGroups = m['groups'] as readonly Record<string, unknown>[] | undefined;
     const existingGroups = existing?.groups ?? [];
-
-    const selectedOptionId =
-      (clientGroups?.[0]?.['selected_option_id'] as string | undefined) ??
-      existingGroups[0]?.selected_option_id;
-
-    const groups: readonly FulfillmentGroup[] = [
-      {
-        id: existingGroups[0]?.id ?? `group_${idx}`,
-        line_item_ids: lineItemIds,
-        options: options ?? existingGroups[0]?.options,
-        selected_option_id: selectedOptionId,
-      },
-    ];
+    const groups = mergeGroups(clientGroups, existingGroups, options, lineItemIds, idx);
 
     return {
       id: methodId,
@@ -326,6 +333,27 @@ export function buildFulfillmentForUpdate(
 }
 
 /**
+ * Sum the cost of all selected fulfillment options across all methods and groups.
+ */
+export function getSelectedFulfillmentCost(fulfillment: Fulfillment | null): number {
+  if (!fulfillment) return 0;
+
+  let cost = 0;
+  for (const method of fulfillment.methods) {
+    for (const group of method.groups) {
+      if (group.selected_option_id && group.options) {
+        const option = group.options.find((o) => o.id === group.selected_option_id);
+        if (option) {
+          const optTotal = option.totals.find((t) => t.type === 'total');
+          cost += optTotal?.amount ?? 0;
+        }
+      }
+    }
+  }
+  return cost;
+}
+
+/**
  * Compute the fulfillment cost from the selected option and add it to session totals.
  * Returns updated totals array. If no option selected, removes any existing fulfillment total.
  */
@@ -336,21 +364,7 @@ export function computeTotalsWithFulfillment(
   const lineItems = session.line_items;
   const subtotal = computeSubtotal(lineItems);
 
-  // Find selected fulfillment cost
-  let fulfillmentCost = 0;
-  if (fulfillment) {
-    for (const method of fulfillment.methods) {
-      for (const group of method.groups) {
-        if (group.selected_option_id && group.options) {
-          const option = group.options.find((o) => o.id === group.selected_option_id);
-          if (option) {
-            const optTotal = option.totals.find((t) => t.type === 'total');
-            fulfillmentCost += optTotal?.amount ?? 0;
-          }
-        }
-      }
-    }
-  }
+  const fulfillmentCost = getSelectedFulfillmentCost(fulfillment);
 
   const totals: Total[] = [{ type: 'subtotal', amount: subtotal }];
 

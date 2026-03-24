@@ -1,5 +1,20 @@
-import type { Product, Cart, LineItem, Total, Order, PostalAddress } from '@ucp-gateway/core';
-import type { MagentoProduct, MagentoCartItem, MagentoTotals } from './magento-types.js';
+import type {
+  Product,
+  Cart,
+  LineItem,
+  Total,
+  Order,
+  PostalAddress,
+  Fulfillment,
+  FulfillmentOption,
+} from '@ucp-gateway/core';
+import type {
+  MagentoProduct,
+  MagentoCartItem,
+  MagentoTotals,
+  MagentoShippingMethod,
+  MagentoTotalsResponse,
+} from './magento-types.js';
 import { dollarsToCents } from '../shared/price.js';
 
 export function mapMagentoProduct(item: MagentoProduct, storeUrl: string): Product {
@@ -80,4 +95,74 @@ export function buildMagentoShippingAddress(address: PostalAddress): Record<stri
     country_id: address.address_country,
     telephone: address.phone_number ?? '0000000000',
   };
+}
+
+export function mapShippingMethodToFulfillmentOption(
+  method: MagentoShippingMethod,
+): FulfillmentOption {
+  return {
+    id: `${method.carrier_code}_${method.method_code}`,
+    title: `${method.carrier_title} — ${method.method_title}`,
+    totals: [{ type: 'fulfillment', amount: dollarsToCents(method.price_incl_tax) }],
+  };
+}
+
+export function mapShippingMethodsToFulfillment(
+  methods: readonly MagentoShippingMethod[],
+): Fulfillment {
+  const availableMethods = methods.filter((m) => m.available);
+  const options = availableMethods.map(mapShippingMethodToFulfillmentOption);
+
+  return {
+    methods: [
+      {
+        id: 'shipping',
+        type: 'shipping',
+        line_item_ids: [],
+        groups: [
+          {
+            id: 'default',
+            line_item_ids: [],
+            options,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export function mapMagentoTotalsWithDiscount(totals: MagentoTotalsResponse): readonly Total[] {
+  const result: Total[] = [{ type: 'subtotal', amount: dollarsToCents(totals.subtotal) }];
+
+  if (totals.discount_amount && totals.discount_amount !== 0) {
+    result.push({
+      type: 'discount',
+      amount: dollarsToCents(totals.discount_amount),
+      display_text: totals.coupon_code ? `Coupon: ${totals.coupon_code}` : 'Discount',
+    });
+  }
+
+  result.push({
+    type: 'fulfillment',
+    amount: dollarsToCents(totals.shipping_amount),
+    display_text: 'Shipping',
+  });
+
+  result.push({ type: 'tax', amount: dollarsToCents(totals.tax_amount) });
+  result.push({ type: 'total', amount: dollarsToCents(totals.grand_total) });
+
+  return result;
+}
+
+const PAYMENT_METHOD_MAP: Readonly<Record<string, string>> = {
+  checkmo: 'checkmo',
+  check_money_order: 'checkmo',
+  cashondelivery: 'cashondelivery',
+  cod: 'cashondelivery',
+  banktransfer: 'banktransfer',
+  free: 'free',
+};
+
+export function mapPaymentHandlerToMagentoMethod(handlerId: string): string {
+  return PAYMENT_METHOD_MAP[handlerId] ?? 'checkmo';
 }

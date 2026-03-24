@@ -116,7 +116,7 @@ export function toPublicCheckoutResponse(
 
   const result = ExtendedCheckoutResponseSchema.safeParse(raw);
   if (!result.success) {
-    // Graceful degradation: return unvalidated response but log the mismatch
+    // NOTE: Graceful degradation — return unvalidated response but log the mismatch
     // so we can tighten the internal model over time.
     if (process.env['NODE_ENV'] !== 'test') {
       console.warn(

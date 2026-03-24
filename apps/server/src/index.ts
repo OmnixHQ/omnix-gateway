@@ -12,7 +12,6 @@ const env = loadEnv();
 const container = createAppContainer(env);
 const app = await buildApp({ container });
 
-// Graceful shutdown
 const shutdown = async (signal: string): Promise<void> => {
   app.log.info(`Received ${signal}, shutting down gracefully…`);
   await app.close();
@@ -23,7 +22,6 @@ const shutdown = async (signal: string): Promise<void> => {
 process.on('SIGTERM', () => void shutdown('SIGTERM'));
 process.on('SIGINT', () => void shutdown('SIGINT'));
 
-// Start server
 try {
   await app.listen({ port: env.PORT, host: '0.0.0.0' });
 } catch (err) {

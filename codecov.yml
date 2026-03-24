@@ -1,0 +1,26 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 2%
+        if_ci_failed: error
+    patch:
+      default:
+        target: 80%
+        threshold: 5%
+
+comment:
+  layout: "condensed_header, diff, flags, components"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true
+
+ignore:
+  - "apps/server/src/__tests__/**"
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "scripts/**"
+  - "tests/**"
+  - "platforms/**"

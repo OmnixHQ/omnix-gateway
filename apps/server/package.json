@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "test:live": "RUN_LIVE_TESTS=true vitest run src/__tests__/live-magento.test.ts",
     "test:watch": "vitest",
     "typecheck": "tsc -b",
@@ -37,6 +37,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^1.6.1",
     "drizzle-kit": "^0.21.0",
     "tsx": "^4.19.0",
     "typescript": "*",

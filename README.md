@@ -3,6 +3,7 @@
 > Universal Commerce Protocol gateway — connect any e-commerce store to any AI agent.
 
 [![CI](https://github.com/GetMomentumToday/ucp-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/GetMomentumToday/ucp-gateway/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/GetMomentumToday/ucp-gateway/graph/badge.svg)](https://codecov.io/gh/GetMomentumToday/ucp-gateway)
 [![License: ELv2](https://img.shields.io/badge/License-ELv2-blue.svg)](LICENSE.md)
 [![UCP Spec](https://img.shields.io/badge/UCP-2026--01--23-purple.svg)](https://ucp.dev/latest/specification/overview/)
 [![Node.js 22](https://img.shields.io/badge/node-22-brightgreen.svg)](https://nodejs.org)
