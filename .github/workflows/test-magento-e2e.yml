@@ -8,6 +8,9 @@ on:
       - 'apps/server/src/routes/checkout.ts'
       - 'tests/e2e-magento/**'
 
+permissions:
+  contents: read
+
 jobs:
   magento-e2e:
     runs-on: ubuntu-latest

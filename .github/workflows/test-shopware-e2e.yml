@@ -8,6 +8,9 @@ on:
       - 'apps/server/src/routes/checkout.ts'
       - 'tests/e2e-shopware/**'
 
+permissions:
+  contents: read
+
 jobs:
   shopware-e2e:
     runs-on: ubuntu-latest

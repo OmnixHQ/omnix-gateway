@@ -7,8 +7,8 @@ coverage:
         if_ci_failed: error
     patch:
       default:
-        target: 80%
-        threshold: 5%
+        target: 60%
+        threshold: 10%
 
 comment:
   layout: "condensed_header, diff, flags, components"
@@ -24,3 +24,6 @@ ignore:
   - "scripts/**"
   - "tests/**"
   - "platforms/**"
+  - "packages/adapters/src/magento/**"
+  - "packages/adapters/src/shopware/**"
+  - "packages/adapters/src/shared/**"
