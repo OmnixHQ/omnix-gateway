@@ -82,7 +82,12 @@ for verify_attempt in 1 2 3 4 5; do
 done
 
 # ── 4. Seed products ──────────────────────────────────────────────────────
-echo "4. Seeding products and coupons..."
+echo "4. Enabling multiple shipping methods..."
+docker exec "$MAGENTO_CONTAINER" su www-data -c "php /var/www/html/bin/magento config:set carriers/freeshipping/active 1" 2>/dev/null || true
+docker exec "$MAGENTO_CONTAINER" su www-data -c "php /var/www/html/bin/magento config:set carriers/freeshipping/free_shipping_subtotal 0" 2>/dev/null || true
+docker exec "$MAGENTO_CONTAINER" su www-data -c "php /var/www/html/bin/magento cache:clean config" 2>/dev/null || true
+
+echo "5. Seeding products and coupons..."
 bash "$PROJECT_ROOT/platforms/magento/setup-products.sh"
 bash "$SCRIPT_DIR/seed-coupons.sh"
 
