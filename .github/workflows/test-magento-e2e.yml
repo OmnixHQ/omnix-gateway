@@ -51,8 +51,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build
-        run: npm run build
+      - name: Build (core first, then adapters, then server)
+        run: |
+          npm run build -w packages/core
+          npm run build -w packages/adapters
+          npm run build -w apps/server
 
       - name: Start Magento platform
         run: docker compose -f platforms/docker-compose.platforms.yml up -d magento magento-db magento-es
