@@ -85,8 +85,10 @@ while [ "$api_wait" -lt 120 ]; do
 done
 
 # ── 3. Set developer mode (skip DI compile) ────────────────────────────────
-echo "3. Setting developer mode..."
+echo "3. Fixing permissions and setting developer mode..."
+docker exec platforms-magento-1 bash -c "chmod -R 777 /var/www/html/var /var/www/html/generated /var/www/html/pub/static 2>/dev/null" || true
 docker exec platforms-magento-1 php /var/www/html/bin/magento deploy:mode:set developer 2>/dev/null || true
+docker exec platforms-magento-1 php /var/www/html/bin/magento cache:flush 2>/dev/null || true
 
 # ── 4. Seed products ──────────────────────────────────────────────────────
 echo "4. Seeding products..."
