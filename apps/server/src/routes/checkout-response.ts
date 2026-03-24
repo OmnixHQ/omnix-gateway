@@ -3,10 +3,20 @@ import type { CheckoutSession, CheckoutLink, PaymentHandler } from '@ucp-gateway
 
 const UCP_VERSION = '2026-01-23';
 
+const TERMINAL_STATUSES = new Set(['completed', 'canceled']);
+
+function resolveContinueUrl(session: CheckoutSession, tenantDomain?: string): string | null {
+  if (session.continue_url) return session.continue_url;
+  if (TERMINAL_STATUSES.has(session.status)) return null;
+  if (!tenantDomain) return null;
+  return `https://${tenantDomain}/checkout/${session.id}`;
+}
+
 /** Settings shape expected on the tenant object (subset of tenant.settings). */
 export interface TenantLinkSettings {
   readonly privacy_policy_url?: string;
   readonly terms_of_service_url?: string;
+  readonly domain?: string;
 }
 
 /**
@@ -81,7 +91,7 @@ function buildRawResponse(
       : null,
     order_id: session.order?.id,
     order_permalink_url: session.order?.permalink_url,
-    continue_url: session.continue_url,
+    continue_url: resolveContinueUrl(session, tenantSettings?.domain),
     messages: session.messages,
     expires_at: session.expires_at,
     fulfillment: session.fulfillment ?? undefined,

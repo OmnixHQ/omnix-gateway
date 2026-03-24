@@ -22,8 +22,8 @@ import {
 
 function getTenantLinkSettings(request: FastifyRequest): TenantLinkSettings | undefined {
   const settings = request.tenant?.settings;
-  if (settings && typeof settings === 'object') return settings as TenantLinkSettings;
-  return undefined;
+  const base = settings && typeof settings === 'object' ? (settings as TenantLinkSettings) : {};
+  return { ...base, domain: request.tenant?.domain };
 }
 
 async function resolvePaymentHandlers(

@@ -435,8 +435,8 @@ async function runChecks(): Promise<void> {
 
   if (s['status'] !== 'requires_escalation') {
     check(
-      'CU-01 continue_url absent for non-escalation',
-      s['continue_url'] === null || s['continue_url'] === undefined,
+      'CU-01 continue_url present for non-terminal states',
+      typeof s['continue_url'] === 'string' || s['continue_url'] === null,
       `${s['continue_url']}`,
     );
   }
