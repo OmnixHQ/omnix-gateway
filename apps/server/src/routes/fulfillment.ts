@@ -18,6 +18,7 @@ import type {
   FulfillmentOptionTotal,
   CheckoutSession,
   CheckoutSessionLineItem,
+  PlatformAdapter,
   Total,
 } from '@ucp-gateway/core';
 import {
@@ -170,6 +171,34 @@ function generateShippingOptions(
   ];
 }
 
+async function fetchFulfillmentOptionsFromAdapter(
+  adapter: PlatformAdapter | undefined,
+  cartId: string | undefined,
+  destination: FulfillmentDestination,
+): Promise<readonly FulfillmentOption[] | null> {
+  if (!adapter?.getFulfillmentOptions || !cartId) return null;
+  try {
+    const fulfillment = await adapter.getFulfillmentOptions(cartId, destination);
+    const firstGroup = fulfillment.methods[0]?.groups[0];
+    return firstGroup?.options ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function notifyAdapterOfSelectedOption(
+  adapter: PlatformAdapter | undefined,
+  cartId: string | undefined,
+  selectedOptionId: string,
+): Promise<void> {
+  if (!adapter?.setShippingMethod || !cartId) return;
+  try {
+    await adapter.setShippingMethod(cartId, selectedOptionId);
+  } catch {
+    // fallback: selection stored locally even if adapter call fails
+  }
+}
+
 function resolveDestinationCountry(
   selectedDestId: string | undefined,
   destinations: readonly FulfillmentDestination[] | undefined,
@@ -183,11 +212,13 @@ function resolveDestinationCountry(
  * Build an initial fulfillment object from a create-session request payload.
  * Returns null if no fulfillment was requested.
  */
-export function buildFulfillmentForCreate(
+export async function buildFulfillmentForCreate(
   requestFulfillment: Record<string, unknown> | undefined,
   lineItems: readonly CheckoutSessionLineItem[],
   buyerEmail: string | undefined,
-): Fulfillment | null {
+  adapter?: PlatformAdapter,
+  cartId?: string,
+): Promise<Fulfillment | null> {
   if (!requestFulfillment) return null;
 
   const methods = requestFulfillment['methods'] as readonly Record<string, unknown>[] | undefined;
@@ -195,16 +226,30 @@ export function buildFulfillmentForCreate(
 
   const lineItemIds = lineItems.map((li) => li.id);
 
-  const builtMethods: readonly FulfillmentMethod[] = methods.map((m, idx) => {
+  const builtMethods: FulfillmentMethod[] = [];
+  for (let idx = 0; idx < methods.length; idx++) {
+    const m = methods[idx]!;
     const clientDests = m['destinations'] as readonly FulfillmentDestination[] | undefined;
     const resolvedDests = resolveDestinations(clientDests, buyerEmail);
     const selectedDestId = m['selected_destination_id'] as string | undefined;
 
+    const selectedDest = selectedDestId
+      ? resolvedDests?.find((d) => d.id === selectedDestId)
+      : undefined;
+
+    const adapterOptions = selectedDest
+      ? await fetchFulfillmentOptionsFromAdapter(adapter, cartId, selectedDest)
+      : null;
+
     const country = resolveDestinationCountry(selectedDestId, resolvedDests);
-    const options = country ? generateShippingOptions(country, lineItems) : undefined;
+    const options = adapterOptions ?? (country ? generateShippingOptions(country, lineItems) : undefined);
 
     const clientGroups = m['groups'] as readonly Record<string, unknown>[] | undefined;
     const selectedOptionId = clientGroups?.[0]?.['selected_option_id'] as string | undefined;
+
+    if (selectedOptionId) {
+      await notifyAdapterOfSelectedOption(adapter, cartId, selectedOptionId);
+    }
 
     const groups: readonly FulfillmentGroup[] = [
       {
@@ -215,15 +260,15 @@ export function buildFulfillmentForCreate(
       },
     ];
 
-    return {
+    builtMethods.push({
       id: `method_${idx}`,
       type: (m['type'] as string) ?? 'shipping',
       line_item_ids: lineItemIds,
       destinations: resolvedDests ?? undefined,
       selected_destination_id: selectedDestId,
       groups,
-    };
-  });
+    });
+  }
 
   return { methods: builtMethods };
 }
@@ -246,13 +291,21 @@ function resolveDestinationsForUpdate(
   return existingDestinations;
 }
 
-function generateOptionsForSelectedDestination(
+async function generateOptionsForSelectedDestination(
   selectedDestId: string | undefined,
   destinations: readonly FulfillmentDestination[] | undefined,
   lineItems: readonly CheckoutSessionLineItem[],
-): readonly FulfillmentOption[] | undefined {
+  adapter?: PlatformAdapter,
+  cartId?: string,
+): Promise<readonly FulfillmentOption[] | undefined> {
   if (!selectedDestId || !destinations) return undefined;
-  const country = resolveDestinationCountry(selectedDestId, destinations);
+  const selectedDest = destinations.find((d) => d.id === selectedDestId);
+  if (!selectedDest) return undefined;
+
+  const adapterOptions = await fetchFulfillmentOptionsFromAdapter(adapter, cartId, selectedDest);
+  if (adapterOptions) return adapterOptions;
+
+  const country = selectedDest.address_country;
   if (!country) return undefined;
   return generateShippingOptions(country, lineItems);
 }
@@ -282,10 +335,12 @@ function mergeGroups(
  * Merge an incoming fulfillment update with the existing session fulfillment.
  * Handles address injection, option generation, and option selection.
  */
-export function buildFulfillmentForUpdate(
+export async function buildFulfillmentForUpdate(
   requestFulfillment: Record<string, unknown> | undefined,
   session: CheckoutSession,
-): Fulfillment | null {
+  adapter?: PlatformAdapter,
+  cartId?: string,
+): Promise<Fulfillment | null> {
   if (!requestFulfillment) return session.fulfillment;
 
   const methods = requestFulfillment['methods'] as readonly Record<string, unknown>[] | undefined;
@@ -297,7 +352,9 @@ export function buildFulfillmentForUpdate(
 
   const existingMethods = session.fulfillment?.methods ?? [];
 
-  const builtMethods: readonly FulfillmentMethod[] = methods.map((m, idx) => {
+  const builtMethods: FulfillmentMethod[] = [];
+  for (let idx = 0; idx < methods.length; idx++) {
+    const m = methods[idx]!;
     const existing = existingMethods[idx];
     const methodId = (m['id'] as string) ?? existing?.id ?? `method_${idx}`;
     const methodType = (m['type'] as string) ?? existing?.type ?? 'shipping';
@@ -313,21 +370,36 @@ export function buildFulfillmentForUpdate(
     const selectedDestId =
       (m['selected_destination_id'] as string | undefined) ?? existing?.selected_destination_id;
 
-    const options = generateOptionsForSelectedDestination(selectedDestId, destinations, lineItems);
+    const options = await generateOptionsForSelectedDestination(
+      selectedDestId,
+      destinations,
+      lineItems,
+      adapter,
+      cartId,
+    );
 
     const clientGroups = m['groups'] as readonly Record<string, unknown>[] | undefined;
     const existingGroups = existing?.groups ?? [];
+
+    const selectedOptionId =
+      (clientGroups?.[0]?.['selected_option_id'] as string | undefined) ??
+      existingGroups[0]?.selected_option_id;
+
+    if (selectedOptionId) {
+      await notifyAdapterOfSelectedOption(adapter, cartId, selectedOptionId);
+    }
+
     const groups = mergeGroups(clientGroups, existingGroups, options, lineItemIds, idx);
 
-    return {
+    builtMethods.push({
       id: methodId,
       type: methodType,
       line_item_ids: lineItemIds,
       destinations,
       selected_destination_id: selectedDestId,
       groups,
-    };
-  });
+    });
+  }
 
   return { methods: builtMethods };
 }

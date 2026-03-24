@@ -8,6 +8,7 @@ import {
   hasSessionAlreadyCompleted,
   computeRequestHash,
   storeIdempotencyRecord,
+  type MessageSeverity,
 } from './checkout-helpers.js';
 import {
   buildFulfillmentForCreate,
@@ -35,14 +36,21 @@ export type ServiceResult =
       readonly statusCode: number;
       readonly code: string;
       readonly message: string;
+      readonly severity?: MessageSeverity;
     };
 
 interface MinimalLogger {
   readonly warn: (msg: string, ...args: unknown[]) => void;
 }
 
-function fail(statusCode: number, code: string, message: string): ServiceResult {
-  return { ok: false, statusCode, code, message };
+function fail(
+  statusCode: number,
+  code: string,
+  message: string,
+  severity?: MessageSeverity,
+): ServiceResult {
+  const base = { ok: false as const, statusCode, code, message };
+  return severity ? { ...base, severity } : base;
 }
 
 function succeed(statusCode: number, session: CheckoutSession): ServiceResult {
@@ -177,10 +185,12 @@ export async function handleCreateSession(
 
   if (body.fulfillment) {
     const buyerEmail = body.buyer?.email ?? undefined;
-    const fulfillment = buildFulfillmentForCreate(
+    const fulfillment = await buildFulfillmentForCreate(
       body.fulfillment as Record<string, unknown>,
       lineItems,
       buyerEmail,
+      deps.adapter,
+      cartId ?? undefined,
     );
     if (fulfillment) {
       updateFields['fulfillment'] = fulfillment;
@@ -262,9 +272,11 @@ export async function handleUpdateSession(
   const discountCodes = body.discounts?.codes;
 
   if (body.fulfillment) {
-    const fulfillment = buildFulfillmentForUpdate(
+    const fulfillment = await buildFulfillmentForUpdate(
       body.fulfillment as Record<string, unknown>,
       session,
+      deps.adapter,
+      session.cart_id ?? undefined,
     );
     if (fulfillment) {
       updateData['fulfillment'] = fulfillment;
@@ -343,6 +355,7 @@ export async function handleCompleteSession(
       400,
       'fulfillment_required',
       'Fulfillment address and option must be selected before completing checkout',
+      'requires_buyer_input',
     );
   }
 
@@ -354,7 +367,7 @@ export async function handleCompleteSession(
     body.payment?.instruments[0];
 
   if (!selectedInstrument) {
-    return fail(400, 'invalid', 'No payment instrument provided');
+    return fail(400, 'invalid', 'No payment instrument provided', 'requires_buyer_input');
   }
 
   const credentialRecord = selectedInstrument.credential as Record<string, unknown> | undefined;
@@ -382,10 +395,18 @@ export async function handleCompleteSession(
     return succeed(200, completed ?? session);
   } catch (err: unknown) {
     if (err instanceof EscalationRequiredError) {
+      const escalationMessage = {
+        type: 'error' as const,
+        code: 'escalation_required',
+        content: err.escalation.reason ?? 'Payment requires additional verification',
+        severity: 'requires_buyer_review' as const,
+      };
+      const existingMessages = session.messages ?? [];
       const escalated = await deps.sessionStore.update(sessionId, {
         status: 'requires_escalation',
         escalation: err.escalation,
         continue_url: err.escalation.continue_url,
+        messages: [...existingMessages, escalationMessage],
       });
       return succeed(200, escalated ?? session);
     }

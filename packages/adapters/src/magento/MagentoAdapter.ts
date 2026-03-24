@@ -142,7 +142,11 @@ export class MagentoAdapter implements PlatformAdapter {
     return mapShippingMethodsToFulfillment(methods);
   }
 
-  async setShippingMethod(cartId: string, carrierCode: string, methodCode: string): Promise<void> {
+  async setShippingMethod(cartId: string, methodId: string): Promise<void> {
+    const separatorIndex = methodId.indexOf('_');
+    const carrierCode = separatorIndex > 0 ? methodId.slice(0, separatorIndex) : methodId;
+    const methodCode = separatorIndex > 0 ? methodId.slice(separatorIndex + 1) : methodId;
+
     const defaultAddress = {
       firstname: 'Guest',
       lastname: 'Checkout',

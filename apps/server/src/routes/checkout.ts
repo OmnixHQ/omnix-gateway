@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { AdapterError } from '@ucp-gateway/core';
-import { sendSessionError } from './checkout-helpers.js';
+import { sendSessionError, type MessageSeverity } from './checkout-helpers.js';
 import { toPublicCheckoutResponse, type TenantLinkSettings } from './checkout-response.js';
 import { isSessionOwnedByTenant } from './checkout-helpers.js';
 import {
@@ -30,10 +30,11 @@ function sendResult(
   reply: FastifyReply,
   result:
     | { ok: true; statusCode: number; session: unknown }
-    | { ok: false; statusCode: number; code: string; message: string },
+    | { ok: false; statusCode: number; code: string; message: string; severity?: MessageSeverity },
   tenantSettings?: TenantLinkSettings,
 ): FastifyReply {
-  if (!result.ok) return sendSessionError(reply, result.code, result.message, result.statusCode);
+  if (!result.ok)
+    return sendSessionError(reply, result.code, result.message, result.statusCode, result.severity);
   return reply
     .status(result.statusCode)
     .send(

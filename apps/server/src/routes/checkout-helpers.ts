@@ -5,15 +5,18 @@ import type { Redis as RedisType } from 'ioredis';
 
 const IDEMPOTENCY_TTL_SECONDS = 86400; // 24 hours per spec
 
+export type MessageSeverity = 'recoverable' | 'requires_buyer_input' | 'requires_buyer_review';
+
 export function sendSessionError(
   reply: FastifyReply,
   code: string,
   message: string,
   httpStatus: number,
+  severity: MessageSeverity = 'recoverable',
 ): FastifyReply {
   return reply.status(httpStatus).send({
     detail: message,
-    messages: [{ type: 'error', code, content: message, severity: 'recoverable' }],
+    messages: [{ type: 'error', code, content: message, severity }],
   });
 }
 

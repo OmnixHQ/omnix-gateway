@@ -1,6 +1,8 @@
 import type {
   Cart,
   CheckoutContext,
+  Fulfillment,
+  FulfillmentDestination,
   LineItem,
   Order,
   PaymentToken,
@@ -25,4 +27,6 @@ export interface PlatformAdapter {
   calculateTotals(cartId: string, ctx: CheckoutContext): Promise<readonly Total[]>;
   placeOrder(cartId: string, payment: PaymentToken): Promise<Order>;
   getOrder(id: string): Promise<Order>;
+  getFulfillmentOptions?(cartId: string, destination: FulfillmentDestination): Promise<Fulfillment>;
+  setShippingMethod?(cartId: string, methodId: string): Promise<void>;
 }
