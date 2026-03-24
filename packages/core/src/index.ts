@@ -11,6 +11,7 @@ export type {
   UCPService,
   UCPCapability,
   UCPPaymentHandler,
+  PaymentHandler,
   JsonWebKey,
   Product,
   ProductVariant,

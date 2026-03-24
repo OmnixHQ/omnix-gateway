@@ -8,6 +8,7 @@ import type {
   CheckoutContext,
   Total,
   PaymentToken,
+  PaymentHandler,
   Order,
   Fulfillment,
   FulfillmentDestination,
@@ -72,6 +73,13 @@ export class MagentoAdapter implements PlatformAdapter {
       },
       signing_keys: [],
     };
+  }
+
+  async getSupportedPaymentMethods(): Promise<readonly PaymentHandler[]> {
+    return [
+      { id: 'checkmo', name: 'Check / Money Order', type: 'offline' },
+      { id: 'cashondelivery', name: 'Cash on Delivery', type: 'offline' },
+    ];
   }
 
   async searchProducts(query: SearchQuery): Promise<readonly Product[]> {

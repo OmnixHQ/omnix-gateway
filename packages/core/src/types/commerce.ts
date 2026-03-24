@@ -47,6 +47,12 @@ export interface UCPPaymentHandler {
   readonly config?: Readonly<Record<string, unknown>> | undefined;
 }
 
+export interface PaymentHandler {
+  readonly id: string;
+  readonly name: string;
+  readonly type: 'offline' | 'redirect' | 'card' | 'wallet' | 'other';
+}
+
 export interface JsonWebKey {
   readonly kty: string;
   readonly kid: string;

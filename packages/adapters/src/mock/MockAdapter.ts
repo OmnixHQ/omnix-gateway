@@ -7,6 +7,7 @@ import type {
   LineItem,
   CheckoutContext,
   Total,
+  PaymentHandler,
   PaymentToken,
   Order,
 } from '@ucp-gateway/core';
@@ -45,6 +46,10 @@ export class MockAdapter implements PlatformAdapter {
 
   async getProfile(): Promise<UCPProfile> {
     return MOCK_PROFILE;
+  }
+
+  async getSupportedPaymentMethods(): Promise<readonly PaymentHandler[]> {
+    return [{ id: 'mock', name: 'Mock Payment', type: 'card' }];
   }
 
   async searchProducts(query: SearchQuery): Promise<readonly Product[]> {

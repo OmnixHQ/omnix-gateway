@@ -6,6 +6,7 @@ import type {
   FulfillmentOption,
   LineItem,
   Order,
+  PaymentHandler,
   PaymentToken,
   PlatformAdapter,
   Product,
@@ -90,6 +91,21 @@ export class ShopwareAdapter implements PlatformAdapter {
       },
       signing_keys: [],
     };
+  }
+
+  async getSupportedPaymentMethods(): Promise<readonly PaymentHandler[]> {
+    const response = await this.request<{
+      readonly elements: readonly {
+        readonly id: string;
+        readonly translated: { readonly name?: string };
+      }[];
+    }>('POST', '/store-api/payment-method', {});
+
+    return (response.elements ?? []).map((el) => ({
+      id: el.id,
+      name: el.translated.name ?? el.id,
+      type: 'other' as const,
+    }));
   }
 
   async searchProducts(query: SearchQuery): Promise<readonly Product[]> {

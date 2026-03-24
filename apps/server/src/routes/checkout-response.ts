@@ -1,5 +1,5 @@
 import { CheckoutResponseStatusSchema, ExtendedCheckoutResponseSchema } from '@ucp-js/sdk';
-import type { CheckoutSession, CheckoutLink } from '@ucp-gateway/core';
+import type { CheckoutSession, CheckoutLink, PaymentHandler } from '@ucp-gateway/core';
 
 const UCP_VERSION = '2026-01-23';
 
@@ -33,14 +33,16 @@ function resolveDefaultLinks(tenantSettings?: TenantLinkSettings): readonly Chec
   return links;
 }
 
-/**
- * Build a raw response object from an internal CheckoutSession.
- * This shape is aligned with `ExtendedCheckoutResponseSchema` from @ucp-js/sdk.
- */
+export interface CheckoutResponseOptions {
+  readonly tenantSettings?: TenantLinkSettings | undefined;
+  readonly paymentHandlers?: readonly PaymentHandler[] | undefined;
+}
+
 function buildRawResponse(
   session: CheckoutSession,
-  tenantSettings?: TenantLinkSettings,
+  options?: CheckoutResponseOptions,
 ): Record<string, unknown> {
+  const tenantSettings = options?.tenantSettings;
   const links = session.links.length > 0 ? session.links : resolveDefaultLinks(tenantSettings);
 
   const status = CheckoutResponseStatusSchema.safeParse(session.status);
@@ -85,7 +87,11 @@ function buildRawResponse(
     fulfillment: session.fulfillment ?? undefined,
     discounts: session.discounts ?? undefined,
     payment: {
-      handlers: [],
+      handlers: (options?.paymentHandlers ?? []).map((h) => ({
+        id: h.id,
+        name: h.name,
+        type: h.type,
+      })),
       instruments: [],
     },
     ucp: {
@@ -121,9 +127,16 @@ function buildRawResponse(
  */
 export function toPublicCheckoutResponse(
   session: CheckoutSession,
-  tenantSettings?: TenantLinkSettings,
+  tenantSettingsOrOptions?: TenantLinkSettings | CheckoutResponseOptions,
 ): Record<string, unknown> {
-  const raw = buildRawResponse(session, tenantSettings);
+  const isOptionsObject =
+    tenantSettingsOrOptions !== undefined &&
+    tenantSettingsOrOptions !== null &&
+    ('paymentHandlers' in tenantSettingsOrOptions || 'tenantSettings' in tenantSettingsOrOptions);
+  const options: CheckoutResponseOptions = isOptionsObject
+    ? tenantSettingsOrOptions
+    : { tenantSettings: tenantSettingsOrOptions as TenantLinkSettings | undefined };
+  const raw = buildRawResponse(session, options);
 
   const result = ExtendedCheckoutResponseSchema.safeParse(raw);
   if (!result.success) {

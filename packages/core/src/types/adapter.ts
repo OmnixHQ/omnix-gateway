@@ -5,6 +5,7 @@ import type {
   FulfillmentDestination,
   LineItem,
   Order,
+  PaymentHandler,
   PaymentToken,
   Product,
   SearchQuery,
@@ -29,4 +30,5 @@ export interface PlatformAdapter {
   getOrder(id: string): Promise<Order>;
   getFulfillmentOptions?(cartId: string, destination: FulfillmentDestination): Promise<Fulfillment>;
   setShippingMethod?(cartId: string, methodId: string): Promise<void>;
+  getSupportedPaymentMethods?(): Promise<readonly PaymentHandler[]>;
 }

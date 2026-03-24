@@ -1,8 +1,13 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import type { PlatformAdapter, PaymentHandler } from '@ucp-gateway/core';
 import { AdapterError } from '@ucp-gateway/core';
 import { sendSessionError, type MessageSeverity } from './checkout-helpers.js';
-import { toPublicCheckoutResponse, type TenantLinkSettings } from './checkout-response.js';
+import {
+  toPublicCheckoutResponse,
+  type TenantLinkSettings,
+  type CheckoutResponseOptions,
+} from './checkout-response.js';
 import { isSessionOwnedByTenant } from './checkout-helpers.js';
 import {
   createSessionSchema,
@@ -21,6 +26,17 @@ function getTenantLinkSettings(request: FastifyRequest): TenantLinkSettings | un
   return undefined;
 }
 
+async function resolvePaymentHandlers(
+  adapter: PlatformAdapter,
+): Promise<readonly PaymentHandler[]> {
+  if (!adapter.getSupportedPaymentMethods) return [];
+  try {
+    return await adapter.getSupportedPaymentMethods();
+  } catch {
+    return [];
+  }
+}
+
 function sendValidationError(reply: FastifyReply, error: z.ZodError): FastifyReply {
   const message = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
   return sendSessionError(reply, 'invalid', message, 400);
@@ -31,7 +47,7 @@ function sendResult(
   result:
     | { ok: true; statusCode: number; session: unknown }
     | { ok: false; statusCode: number; code: string; message: string; severity?: MessageSeverity },
-  tenantSettings?: TenantLinkSettings,
+  options?: CheckoutResponseOptions,
 ): FastifyReply {
   if (!result.ok)
     return sendSessionError(reply, result.code, result.message, result.statusCode, result.severity);
@@ -40,9 +56,17 @@ function sendResult(
     .send(
       toPublicCheckoutResponse(
         result.session as Parameters<typeof toPublicCheckoutResponse>[0],
-        tenantSettings,
+        options,
       ),
     );
+}
+
+async function buildResponseOptions(request: FastifyRequest): Promise<CheckoutResponseOptions> {
+  const paymentHandlers = await resolvePaymentHandlers(request.adapter);
+  return {
+    tenantSettings: getTenantLinkSettings(request),
+    paymentHandlers,
+  };
 }
 
 export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
@@ -63,7 +87,8 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       parsed.data,
     );
 
-    return sendResult(reply, result, getTenantLinkSettings(request));
+    const options = await buildResponseOptions(request);
+    return sendResult(reply, result, options);
   });
 
   app.put<{ Params: { id: string } }>(
@@ -83,7 +108,8 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
         parsed.data,
       );
 
-      return sendResult(reply, result, getTenantLinkSettings(request));
+      const options = await buildResponseOptions(request);
+      return sendResult(reply, result, options);
     },
   );
 
@@ -104,7 +130,8 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
         parsed.data,
       );
 
-      return sendResult(reply, result, getTenantLinkSettings(request));
+      const options = await buildResponseOptions(request);
+      return sendResult(reply, result, options);
     },
   );
 
@@ -125,12 +152,12 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
           'Cannot cancel a completed session',
           409,
         );
-      const tenantLinks = getTenantLinkSettings(request);
+      const options = await buildResponseOptions(request);
       if (session.status === 'canceled')
-        return reply.status(200).send(toPublicCheckoutResponse(session, tenantLinks));
+        return reply.status(200).send(toPublicCheckoutResponse(session, options));
 
       const canceled = await sessionStore.update(request.params.id, { status: 'canceled' });
-      return reply.status(200).send(toPublicCheckoutResponse(canceled ?? session, tenantLinks));
+      return reply.status(200).send(toPublicCheckoutResponse(canceled ?? session, options));
     },
   );
 
@@ -145,9 +172,8 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       if (!isSessionOwnedByTenant(session, request.tenant))
         return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
 
-      return reply
-        .status(200)
-        .send(toPublicCheckoutResponse(session, getTenantLinkSettings(request)));
+      const options = await buildResponseOptions(request);
+      return reply.status(200).send(toPublicCheckoutResponse(session, options));
     },
   );
 
