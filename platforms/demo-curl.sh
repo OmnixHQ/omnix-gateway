@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ##
-# Demo: Full checkout flow through UCP Middleware → Magento
+# Demo: Full checkout flow through UCP Gateway → Magento
 #
 # Prerequisites:
 #   1. Magento running:  docker compose -f platforms/docker-compose.platforms.yml up -d
@@ -20,7 +20,7 @@ AGENT="UCP-Agent: demo-agent/1.0"
 JSON="Content-Type: application/json"
 
 echo "========================================="
-echo "  UCP Middleware — Full Checkout Demo"
+echo "  UCP Gateway — Full Checkout Demo"
 echo "========================================="
 echo ""
 

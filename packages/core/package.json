@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "UCP engine — types, routing, normalisation, and adapter interfaces",
-  "license": "BSL-1.1",
+  "license": "Elastic-2.0",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

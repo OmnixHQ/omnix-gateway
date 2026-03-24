@@ -3,7 +3,7 @@
 > Universal Commerce Protocol gateway — connect any e-commerce store to any AI agent.
 
 [![CI](https://github.com/GetMomentumToday/ucp-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/GetMomentumToday/ucp-gateway/actions/workflows/ci.yml)
-[![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
+[![License: ELv2](https://img.shields.io/badge/License-ELv2-blue.svg)](LICENSE.md)
 [![UCP Spec](https://img.shields.io/badge/UCP-2026--01--23-purple.svg)](https://ucp.dev/latest/specification/overview/)
 [![Node.js 22](https://img.shields.io/badge/node-22-brightgreen.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
@@ -12,7 +12,7 @@
 
 ## Overview
 
-**UCP Gateway** is a BSL-licensed server implementing the [Universal Commerce Protocol](https://ucp.dev). It translates between e-commerce platforms (Magento, Shopware) and AI agents via a standardised checkout API.
+**UCP Gateway** is an [ELv2-licensed](LICENSE.md) server implementing the [Universal Commerce Protocol](https://ucp.dev). It translates between e-commerce platforms (Magento, Shopware) and AI agents via a standardised checkout API.
 
 | Problem                        | Solution                                 |
 | ------------------------------ | ---------------------------------------- |
@@ -92,6 +92,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). All contributors must sign the [CLA](CLA
 
 ## License
 
-[Business Source License 1.1](LICENSE) — changes to Apache 2.0 after four years.
+[Elastic License 2.0 (ELv2)](LICENSE.md) — free to use, modify, and self-host. Cannot be offered as a hosted service.
 
-For commercial use, contact [Momentum Group s. r. o.](https://getmomentum.today)
+For commercial licensing, contact [Momentum Group s. r. o.](https://getmomentum.today) (momentum.group139@gmail.com)

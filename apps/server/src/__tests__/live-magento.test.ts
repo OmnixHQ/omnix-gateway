@@ -1,5 +1,5 @@
 /**
- * Live integration test against real Magento via UCP Middleware.
+ * Live integration test against real Magento via UCP Gateway.
  *
  * Prerequisites (skip this test if not running):
  *   - Magento at http://localhost:8080 with sample products
@@ -40,7 +40,7 @@ function isLiveEnvironmentAvailable(): boolean {
 
 const describeLive = isLiveEnvironmentAvailable() ? describe : describe.skip;
 
-describeLive('Live: UCP Middleware → Magento', () => {
+describeLive('Live: UCP Gateway → Magento', () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {

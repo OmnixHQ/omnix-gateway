@@ -2,8 +2,8 @@
   "name": "@ucp-gateway/server",
   "version": "0.1.0",
   "private": true,
-  "description": "UCP Middleware HTTP server — Fastify application",
-  "license": "BSL-1.1",
+  "description": "UCP Gateway HTTP server — Fastify application",
+  "license": "Elastic-2.0",
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {

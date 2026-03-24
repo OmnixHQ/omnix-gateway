@@ -1,6 +1,6 @@
 # Contributor License Agreement
 
-**UCP Middleware — Contributor License Agreement v1.0**
+**UCP Gateway — Contributor License Agreement v1.0**
 
 By submitting a pull request or otherwise contributing to this repository, you (the "Contributor") agree to the following terms with Momentum Group s. r. o. (the "Company"):
 

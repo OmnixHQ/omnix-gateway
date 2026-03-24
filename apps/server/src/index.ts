@@ -1,5 +1,5 @@
 /**
- * UCP Middleware Server — entry point.
+ * UCP Gateway Server — entry point.
  * Boots the DI container, builds the Fastify app, and starts listening.
  */
 
