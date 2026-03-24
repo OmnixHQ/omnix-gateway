@@ -30,7 +30,12 @@ type CompleteSessionBody = z.infer<typeof completeSessionSchema>;
 
 export type ServiceResult =
   | { readonly ok: true; readonly statusCode: number; readonly session: CheckoutSession }
-  | { readonly ok: false; readonly statusCode: number; readonly code: string; readonly message: string };
+  | {
+      readonly ok: false;
+      readonly statusCode: number;
+      readonly code: string;
+      readonly message: string;
+    };
 
 interface MinimalLogger {
   readonly warn: (msg: string, ...args: unknown[]) => void;
@@ -66,7 +71,12 @@ async function enrichLineItems(
 > {
   const enrichedItems: Array<{
     readonly id: string;
-    readonly item: { readonly id: string; readonly title: string; readonly price: number; readonly image_url: string | undefined };
+    readonly item: {
+      readonly id: string;
+      readonly title: string;
+      readonly price: number;
+      readonly image_url: string | undefined;
+    };
     readonly quantity: number;
     readonly totals: readonly { readonly type: string; readonly amount: number }[];
   }> = [];
@@ -126,11 +136,19 @@ export async function handleCreateSession(
       const record = JSON.parse(raw) as { hash: string; status: number; body: string };
       const currentHash = computeRequestHash(body);
       if (record.hash !== currentHash) {
-        return fail(409, 'idempotency_conflict', 'Idempotency key reused with different parameters');
+        return fail(
+          409,
+          'idempotency_conflict',
+          'Idempotency key reused with different parameters',
+        );
       }
       // NOTE: cached response — return early with the stored session
       const cachedBody = JSON.parse(record.body) as Record<string, unknown>;
-      return { ok: true, statusCode: record.status, session: cachedBody as unknown as CheckoutSession };
+      return {
+        ok: true,
+        statusCode: record.status,
+        session: cachedBody as unknown as CheckoutSession,
+      };
     }
   }
 
@@ -213,11 +231,14 @@ export async function handleUpdateSession(
   const session = await deps.sessionStore.get(sessionId);
 
   if (!session) return fail(404, 'missing', `Session not found: ${sessionId}`);
-  if (isSessionExpired(session)) return fail(410, 'SESSION_EXPIRED', 'Checkout session has expired');
+  if (isSessionExpired(session))
+    return fail(410, 'SESSION_EXPIRED', 'Checkout session has expired');
   if (session.status !== 'incomplete' && session.status !== 'ready_for_complete') {
     return fail(409, 'INVALID_SESSION_STATE', `Cannot modify session in state: ${session.status}`);
   }
-  if (!isSessionOwnedByTenant(session, deps.tenant as Parameters<typeof isSessionOwnedByTenant>[1])) {
+  if (
+    !isSessionOwnedByTenant(session, deps.tenant as Parameters<typeof isSessionOwnedByTenant>[1])
+  ) {
     return fail(404, 'missing', `Session not found: ${sessionId}`);
   }
 
@@ -248,7 +269,11 @@ export async function handleUpdateSession(
     if (fulfillment) {
       updateData['fulfillment'] = fulfillment;
       const fulfillmentCost = extractFulfillmentCost(session, effectiveLineItems, fulfillment);
-      const { totals, discounts } = computeCheckoutTotals(effectiveLineItems, discountCodes, fulfillmentCost);
+      const { totals, discounts } = computeCheckoutTotals(
+        effectiveLineItems,
+        discountCodes,
+        fulfillmentCost,
+      );
       updateData['totals'] = totals;
       if (discounts) updateData['discounts'] = discounts;
       if (shouldMarkReadyForComplete(fulfillment)) {
@@ -260,7 +285,11 @@ export async function handleUpdateSession(
     const fulfillmentCost = existingFulfillment
       ? extractFulfillmentCost(session, effectiveLineItems, existingFulfillment)
       : 0;
-    const { totals, discounts } = computeCheckoutTotals(effectiveLineItems, discountCodes, fulfillmentCost);
+    const { totals, discounts } = computeCheckoutTotals(
+      effectiveLineItems,
+      discountCodes,
+      fulfillmentCost,
+    );
     updateData['totals'] = totals;
     if (discounts) updateData['discounts'] = discounts;
   } else if (updateData['line_items'] || updateData['shipping_address']) {
@@ -292,9 +321,12 @@ export async function handleCompleteSession(
   const session = await deps.sessionStore.get(sessionId);
 
   if (!session) return fail(404, 'missing', `Session not found: ${sessionId}`);
-  if (isSessionExpired(session)) return fail(410, 'SESSION_EXPIRED', 'Checkout session has expired');
+  if (isSessionExpired(session))
+    return fail(410, 'SESSION_EXPIRED', 'Checkout session has expired');
   if (hasSessionAlreadyCompleted(session)) return succeed(200, session);
-  if (!isSessionOwnedByTenant(session, deps.tenant as Parameters<typeof isSessionOwnedByTenant>[1])) {
+  if (
+    !isSessionOwnedByTenant(session, deps.tenant as Parameters<typeof isSessionOwnedByTenant>[1])
+  ) {
     return fail(404, 'missing', `Session not found: ${sessionId}`);
   }
 

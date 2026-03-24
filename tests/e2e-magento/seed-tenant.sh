@@ -16,9 +16,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 MAGENTO_URL="${MAGENTO_URL:-http://localhost:8080}"
 GATEWAY_PORT="${GATEWAY_PORT:-3000}"
-DB_CONTAINER="${DB_CONTAINER:-ucp-middleware-postgres-1}"
+DB_HOST="${DB_HOST:-localhost}"
+DB_PORT="${DB_PORT:-5433}"
+DB_USER="${DB_USER:-ucp}"
+DB_NAME="${DB_NAME:-ucp}"
+REDIS_HOST="${REDIS_HOST:-localhost}"
+REDIS_PORT="${REDIS_PORT:-6380}"
 
-# Read token from file or generate fresh
 if [ -f "$SCRIPT_DIR/.magento-token" ]; then
   TOKEN=$(cat "$SCRIPT_DIR/.magento-token")
 else
@@ -35,11 +39,21 @@ fi
 echo "=== Seeding Magento tenant ==="
 echo "Magento URL: $MAGENTO_URL"
 echo "Gateway port: $GATEWAY_PORT"
+echo "DB: $DB_HOST:$DB_PORT"
 echo ""
 
-# ── Create tenants table if not exists ─────────────────────────────────────
+DB_CONTAINER="${DB_CONTAINER:-ucp-middleware-postgres-1}"
+
+run_psql() {
+  if command -v psql > /dev/null 2>&1; then
+    PGPASSWORD="$DB_USER" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "$1" 2>&1 | grep -v "^$"
+  else
+    docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -c "$1" 2>&1 | grep -v "^$"
+  fi
+}
+
 echo "1. Ensuring tenants table exists..."
-docker exec "$DB_CONTAINER" psql -U ucp -d ucp -c "
+run_psql "
 CREATE TABLE IF NOT EXISTS tenants (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug VARCHAR(255) UNIQUE NOT NULL,
@@ -49,11 +63,10 @@ CREATE TABLE IF NOT EXISTS tenants (
   settings JSONB NOT NULL DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);" 2>&1 | grep -v "^$"
+);"
 
-# ── Upsert tenant (delete + insert to handle both slug and domain conflicts)
 echo "2. Upserting magento-e2e tenant..."
-docker exec "$DB_CONTAINER" psql -U ucp -d ucp -c "
+run_psql "
 DELETE FROM tenants WHERE slug = 'magento-e2e' OR domain = 'localhost:${GATEWAY_PORT}';
 INSERT INTO tenants (slug, domain, platform, adapter_config)
 VALUES (
@@ -61,13 +74,16 @@ VALUES (
   'localhost:${GATEWAY_PORT}',
   'magento',
   '{\"storeUrl\": \"${MAGENTO_URL}\", \"apiKey\": \"${TOKEN}\"}'::jsonb
-);
-" 2>&1 | grep -v "^$"
+);"
 
-# ── Flush Redis tenant cache ──────────────────────────────────────────────
-echo "3. Flushing Redis cache..."
 REDIS_CONTAINER="${REDIS_CONTAINER:-ucp-middleware-redis-1}"
-docker exec "$REDIS_CONTAINER" redis-cli FLUSHALL > /dev/null 2>&1 || true
+
+echo "3. Flushing Redis cache..."
+if command -v redis-cli > /dev/null 2>&1; then
+  redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" FLUSHALL > /dev/null 2>&1 || true
+else
+  docker exec "$REDIS_CONTAINER" redis-cli FLUSHALL > /dev/null 2>&1 || true
+fi
 
 echo ""
 echo "=== Tenant seeded ==="

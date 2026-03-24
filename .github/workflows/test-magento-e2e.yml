@@ -68,7 +68,10 @@ jobs:
         env:
           MAGENTO_URL: http://localhost:8080
           GATEWAY_PORT: 3000
-          DB_CONTAINER: ''
+          DB_HOST: localhost
+          DB_PORT: '5433'
+          REDIS_HOST: localhost
+          REDIS_PORT: '6380'
 
       - name: Start UCP Gateway
         run: |

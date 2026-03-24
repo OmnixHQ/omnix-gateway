@@ -28,13 +28,20 @@ function sendValidationError(reply: FastifyReply, error: z.ZodError): FastifyRep
 
 function sendResult(
   reply: FastifyReply,
-  result: { ok: true; statusCode: number; session: unknown } | { ok: false; statusCode: number; code: string; message: string },
+  result:
+    | { ok: true; statusCode: number; session: unknown }
+    | { ok: false; statusCode: number; code: string; message: string },
   tenantSettings?: TenantLinkSettings,
 ): FastifyReply {
   if (!result.ok) return sendSessionError(reply, result.code, result.message, result.statusCode);
-  return reply.status(result.statusCode).send(
-    toPublicCheckoutResponse(result.session as Parameters<typeof toPublicCheckoutResponse>[0], tenantSettings),
-  );
+  return reply
+    .status(result.statusCode)
+    .send(
+      toPublicCheckoutResponse(
+        result.session as Parameters<typeof toPublicCheckoutResponse>[0],
+        tenantSettings,
+      ),
+    );
 }
 
 export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
@@ -42,15 +49,18 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
     const parsed = createSessionSchema.safeParse(request.body);
     if (!parsed.success) return sendValidationError(reply, parsed.error);
 
-    const result = await handleCreateSession({
-      adapter: request.adapter,
-      sessionStore: app.container.resolve('sessionStore'),
-      redis: app.container.resolve('redis'),
-      tenantId: request.tenant.id,
-      idempotencyKey: request.headers['idempotency-key'] as string | undefined,
-      logger: app.log,
-      tenantSettings: getTenantLinkSettings(request),
-    }, parsed.data);
+    const result = await handleCreateSession(
+      {
+        adapter: request.adapter,
+        sessionStore: app.container.resolve('sessionStore'),
+        redis: app.container.resolve('redis'),
+        tenantId: request.tenant.id,
+        idempotencyKey: request.headers['idempotency-key'] as string | undefined,
+        logger: app.log,
+        tenantSettings: getTenantLinkSettings(request),
+      },
+      parsed.data,
+    );
 
     return sendResult(reply, result, getTenantLinkSettings(request));
   });
@@ -61,12 +71,16 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       const parsed = updateSessionSchema.safeParse(request.body);
       if (!parsed.success) return sendValidationError(reply, parsed.error);
 
-      const result = await handleUpdateSession({
-        adapter: request.adapter,
-        sessionStore: app.container.resolve('sessionStore'),
-        tenantId: request.tenant.id,
-        tenant: request.tenant,
-      }, request.params.id, parsed.data);
+      const result = await handleUpdateSession(
+        {
+          adapter: request.adapter,
+          sessionStore: app.container.resolve('sessionStore'),
+          tenantId: request.tenant.id,
+          tenant: request.tenant,
+        },
+        request.params.id,
+        parsed.data,
+      );
 
       return sendResult(reply, result, getTenantLinkSettings(request));
     },
@@ -78,12 +92,16 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       const parsed = completeSessionSchema.safeParse(request.body);
       if (!parsed.success) return sendValidationError(reply, parsed.error);
 
-      const result = await handleCompleteSession({
-        adapter: request.adapter,
-        sessionStore: app.container.resolve('sessionStore'),
-        tenantDomain: request.tenant.domain,
-        tenant: request.tenant,
-      }, request.params.id, parsed.data);
+      const result = await handleCompleteSession(
+        {
+          adapter: request.adapter,
+          sessionStore: app.container.resolve('sessionStore'),
+          tenantDomain: request.tenant.domain,
+          tenant: request.tenant,
+        },
+        request.params.id,
+        parsed.data,
+      );
 
       return sendResult(reply, result, getTenantLinkSettings(request));
     },
@@ -126,7 +144,9 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       if (!isSessionOwnedByTenant(session, request.tenant))
         return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
 
-      return reply.status(200).send(toPublicCheckoutResponse(session, getTenantLinkSettings(request)));
+      return reply
+        .status(200)
+        .send(toPublicCheckoutResponse(session, getTenantLinkSettings(request)));
     },
   );
 
