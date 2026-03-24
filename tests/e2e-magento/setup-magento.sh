@@ -52,24 +52,8 @@ INSTALL_CHECK=$(curl -s -o /dev/null -w "%{http_code}" "${MAGENTO_URL}/rest/V1/s
 if [ "$INSTALL_CHECK" = "200" ] || [ "$INSTALL_CHECK" = "401" ]; then
   echo "   Magento is already installed."
 else
-  echo "   Running Magento install..."
-  docker exec "$MAGENTO_CONTAINER" php /var/www/html/bin/magento setup:install \
-    --base-url="$MAGENTO_URL" \
-    --db-host=magento-db \
-    --db-name=magento \
-    --db-user=magento \
-    --db-password=magento \
-    --admin-firstname=Admin \
-    --admin-lastname=User \
-    --admin-email=admin@example.com \
-    --admin-user=admin \
-    --admin-password=magentorocks1 \
-    --language=en_US \
-    --currency=USD \
-    --timezone=UTC \
-    --use-rewrites=1 \
-    --backend-frontname=admin \
-    --no-interaction
+  echo "   Running Magento install (as www-data via built-in script)..."
+  docker exec "$MAGENTO_CONTAINER" install-magento
   echo "   Installation complete."
 fi
 
@@ -86,22 +70,14 @@ while [ "$api_wait" -lt 120 ]; do
 done
 
 # ── 3. Set developer mode (skip DI compile) ────────────────────────────────
-echo "3. Fixing permissions..."
-docker exec "$MAGENTO_CONTAINER" bash -c "
-  chmod -R 777 /var/www/html/var 2>/dev/null
-  chmod -R 777 /var/www/html/generated 2>/dev/null
-  chmod -R 777 /var/www/html/pub/static 2>/dev/null
-" || true
-
-echo "   Verifying API responds with clean JSON..."
+echo "3. Verifying API responds with clean JSON..."
 for verify_attempt in 1 2 3 4 5; do
   VERIFY=$(curl -s "${MAGENTO_URL}/rest/V1/store/storeConfigs" -H 'Accept: application/json' || true)
   if echo "$VERIFY" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
     echo "   API returns valid JSON."
     break
   fi
-  echo "   Attempt $verify_attempt: API still returning invalid JSON, restarting Apache..."
-  docker exec "$MAGENTO_CONTAINER" bash -c "service apache2 restart 2>/dev/null || apachectl restart 2>/dev/null || true" || true
+  echo "   Attempt $verify_attempt: waiting for clean API response..."
   sleep 5
 done
 
