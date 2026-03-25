@@ -73,6 +73,7 @@ echo ""
 # ── 3. Product search ─────────────────────────────────────────────────────
 echo "--- 3. Product search ---"
 SEARCH=$(curl -s "$GATEWAY_URL/ucp/products?q=shoes" -H "$AGENT_HEADER")
+echo "  DEBUG search response: $(echo "$SEARCH" | head -c 200)"
 PRODUCT_ID=$(echo "$SEARCH" | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
@@ -92,6 +93,7 @@ CREATE_RESP=$(curl -s -X POST "$GATEWAY_URL/checkout-sessions" \
   -H "$AGENT_HEADER" -H "$CONTENT_TYPE" \
   -d "{\"line_items\": [{\"item\": {\"id\": \"$PRODUCT_ID\"}, \"quantity\": 1}]}")
 
+echo "  DEBUG create response: $(echo "$CREATE_RESP" | head -c 300)"
 SESSION_ID=$(echo "$CREATE_RESP" | json_field ".get('id','?')")
 SESSION_STATUS=$(echo "$CREATE_RESP" | json_field ".get('status','?')")
 LINE_ITEMS_COUNT=$(echo "$CREATE_RESP" | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('line_items',[])))" 2>/dev/null || echo "0")
