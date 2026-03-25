@@ -210,7 +210,11 @@ export async function buildFulfillmentForCreate(
   const builtMethods: FulfillmentMethod[] = [];
   for (let idx = 0; idx < methods.length; idx++) {
     const m = methods[idx]!;
-    const clientDests = m['destinations'] as readonly FulfillmentDestination[] | undefined;
+    const methodDests = m['destinations'] as readonly FulfillmentDestination[] | undefined;
+    const fulfillmentDests = requestFulfillment['destinations'] as
+      | readonly FulfillmentDestination[]
+      | undefined;
+    const clientDests = methodDests ?? fulfillmentDests;
     const resolvedDests = resolveDestinations(clientDests, buyerEmail);
     const selectedDestId = m['selected_destination_id'] as string | undefined;
 
@@ -345,7 +349,11 @@ export async function buildFulfillmentForUpdate(
     const methodId = (m['id'] as string) ?? existing?.id ?? `method_${idx}`;
     const methodType = (m['type'] as string) ?? existing?.type ?? 'shipping';
 
-    const clientDests = m['destinations'] as readonly FulfillmentDestination[] | undefined;
+    const methodDests = m['destinations'] as readonly FulfillmentDestination[] | undefined;
+    const fulfillmentDests = requestFulfillment['destinations'] as
+      | readonly FulfillmentDestination[]
+      | undefined;
+    const clientDests = methodDests ?? fulfillmentDests;
     const destinations = resolveDestinationsForUpdate(
       clientDests,
       methodType,
@@ -402,7 +410,10 @@ export function getSelectedFulfillmentCost(fulfillment: Fulfillment | null): num
       if (group.selected_option_id && group.options) {
         const option = group.options.find((o) => o.id === group.selected_option_id);
         if (option) {
-          const optTotal = option.totals.find((t) => t.type === 'total');
+          const optTotal =
+            option.totals.find((t) => t.type === 'total') ??
+            option.totals.find((t) => t.type === 'fulfillment') ??
+            option.totals[0];
           cost += optTotal?.amount ?? 0;
         }
       }
