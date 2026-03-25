@@ -10,6 +10,8 @@ import type {
   PaymentHandler,
   PaymentToken,
   Order,
+  Fulfillment,
+  FulfillmentDestination,
 } from '@ucp-gateway/core';
 import { AdapterError, notFound, outOfStock } from '@ucp-gateway/core';
 import { MOCK_PRODUCTS, MOCK_PROFILE, MOCK_DISCOUNTS } from './mock-data.js';
@@ -180,6 +182,43 @@ export class MockAdapter implements PlatformAdapter {
       type: discountDef.type,
       description: discountDef.description,
     };
+  }
+
+  async getFulfillmentOptions(
+    _cartId: string,
+    _destination: FulfillmentDestination,
+  ): Promise<Fulfillment> {
+    return {
+      methods: [
+        {
+          id: 'mock-shipping',
+          type: 'shipping',
+          line_item_ids: [],
+          groups: [
+            {
+              id: 'mock-group',
+              line_item_ids: [],
+              options: [
+                {
+                  id: 'mock-standard',
+                  title: 'Standard Shipping',
+                  totals: [{ type: 'fulfillment', amount: FLAT_SHIPPING_CENTS }],
+                },
+                {
+                  id: 'mock-express',
+                  title: 'Express Shipping',
+                  totals: [{ type: 'fulfillment', amount: FLAT_SHIPPING_CENTS * 3 }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  async setShippingMethod(_cartId: string, _methodId: string): Promise<void> {
+    return;
   }
 
   async getOrder(id: string): Promise<Order> {

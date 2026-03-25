@@ -28,10 +28,10 @@ export interface PlatformAdapter {
   calculateTotals(cartId: string, ctx: CheckoutContext): Promise<readonly Total[]>;
   placeOrder(cartId: string, payment: PaymentToken): Promise<Order>;
   getOrder(id: string): Promise<Order>;
-  getFulfillmentOptions?(cartId: string, destination: FulfillmentDestination): Promise<Fulfillment>;
-  setShippingMethod?(cartId: string, methodId: string): Promise<void>;
-  getSupportedPaymentMethods?(): Promise<readonly PaymentHandler[]>;
-  applyCoupon?(
+  getFulfillmentOptions(cartId: string, destination: FulfillmentDestination): Promise<Fulfillment>;
+  setShippingMethod(cartId: string, methodId: string): Promise<void>;
+  getSupportedPaymentMethods(): Promise<readonly PaymentHandler[]>;
+  applyCoupon(
     cartId: string,
     code: string,
   ): Promise<{ amount: number; type: string; description: string }>;

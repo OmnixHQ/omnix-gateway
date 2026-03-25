@@ -28,16 +28,6 @@ function generateAddressId(dest: FulfillmentDestination): string {
   return `addr_${hash}`;
 }
 
-function resolveSelectedOptionId(
-  clientSelectedId: string | undefined,
-  options: readonly FulfillmentOption[] | undefined,
-): string | undefined {
-  if (!clientSelectedId || !options || options.length === 0) return clientSelectedId;
-  const exactMatch = options.find((o) => o.id === clientSelectedId);
-  if (exactMatch) return clientSelectedId;
-  return options[0]?.id;
-}
-
 function getStoredAddresses(_email: string | undefined): readonly FulfillmentDestination[] {
   return [];
 }
@@ -157,7 +147,7 @@ async function fetchFulfillmentOptionsFromAdapter(
   cartId: string | undefined,
   destination: FulfillmentDestination,
 ): Promise<readonly FulfillmentOption[] | null> {
-  if (!adapter?.getFulfillmentOptions || !cartId) return null;
+  if (adapter === undefined || cartId === undefined) return null;
   try {
     const fulfillment = await adapter.getFulfillmentOptions(cartId, destination);
     const firstGroup = fulfillment.methods[0]?.groups[0];
@@ -210,11 +200,9 @@ export async function buildFulfillmentForCreate(
   const builtMethods: FulfillmentMethod[] = [];
   for (let idx = 0; idx < methods.length; idx++) {
     const m = methods[idx]!;
-    const methodDests = m['destinations'] as readonly FulfillmentDestination[] | undefined;
-    const fulfillmentDests = requestFulfillment['destinations'] as
-      | readonly FulfillmentDestination[]
-      | undefined;
-    const clientDests = methodDests ?? fulfillmentDests;
+    const clientDests =
+      (m['destinations'] as readonly FulfillmentDestination[] | undefined) ??
+      (requestFulfillment['destinations'] as readonly FulfillmentDestination[] | undefined);
     const resolvedDests = resolveDestinations(clientDests, buyerEmail);
     const selectedDestId = m['selected_destination_id'] as string | undefined;
 
@@ -237,14 +225,12 @@ export async function buildFulfillmentForCreate(
       await notifyAdapterOfSelectedOption(adapter, cartId, selectedOptionId);
     }
 
-    const resolvedSelectedOptionId = resolveSelectedOptionId(selectedOptionId, options);
-
     const groups: readonly FulfillmentGroup[] = [
       {
         id: `group_${idx}`,
         line_item_ids: lineItemIds,
         options: options ?? undefined,
-        selected_option_id: resolvedSelectedOptionId,
+        selected_option_id: selectedOptionId,
       },
     ];
 
@@ -279,6 +265,20 @@ function resolveDestinationsForUpdate(
   return existingDestinations;
 }
 
+function normalizeDestination(dest: FulfillmentDestination): FulfillmentDestination {
+  if (dest.address_country) return dest;
+  const addr = dest.address;
+  if (!addr) return dest;
+  return {
+    ...dest,
+    address_country: addr.address_country,
+    street_address: dest.street_address ?? addr.street_address,
+    address_locality: dest.address_locality ?? addr.address_locality,
+    address_region: dest.address_region ?? addr.address_region,
+    postal_code: dest.postal_code ?? addr.postal_code,
+  };
+}
+
 async function generateOptionsForSelectedDestination(
   selectedDestId: string | undefined,
   destinations: readonly FulfillmentDestination[] | undefined,
@@ -290,10 +290,11 @@ async function generateOptionsForSelectedDestination(
   const selectedDest = destinations.find((d) => d.id === selectedDestId);
   if (!selectedDest) return undefined;
 
-  const adapterOptions = await fetchFulfillmentOptionsFromAdapter(adapter, cartId, selectedDest);
+  const normalizedDest = normalizeDestination(selectedDest);
+  const adapterOptions = await fetchFulfillmentOptionsFromAdapter(adapter, cartId, normalizedDest);
   if (adapterOptions) return adapterOptions;
 
-  const country = selectedDest.address_country;
+  const country = normalizedDest.address_country;
   if (!country) return undefined;
   return generateShippingOptions(country, lineItems);
 }
@@ -305,17 +306,15 @@ function mergeGroups(
   lineItemIds: readonly string[],
   idx: number,
 ): readonly FulfillmentGroup[] {
-  const clientSelectedId =
+  const selectedOptionId =
     (clientGroups?.[0]?.['selected_option_id'] as string | undefined) ??
     existingGroups[0]?.selected_option_id;
-  const effectiveOptions = options ?? existingGroups[0]?.options;
-  const selectedOptionId = resolveSelectedOptionId(clientSelectedId, effectiveOptions);
 
   return [
     {
       id: existingGroups[0]?.id ?? `group_${idx}`,
       line_item_ids: lineItemIds,
-      options: effectiveOptions,
+      options: options ?? existingGroups[0]?.options,
       selected_option_id: selectedOptionId,
     },
   ];
@@ -349,11 +348,9 @@ export async function buildFulfillmentForUpdate(
     const methodId = (m['id'] as string) ?? existing?.id ?? `method_${idx}`;
     const methodType = (m['type'] as string) ?? existing?.type ?? 'shipping';
 
-    const methodDests = m['destinations'] as readonly FulfillmentDestination[] | undefined;
-    const fulfillmentDests = requestFulfillment['destinations'] as
-      | readonly FulfillmentDestination[]
-      | undefined;
-    const clientDests = methodDests ?? fulfillmentDests;
+    const clientDests =
+      (m['destinations'] as readonly FulfillmentDestination[] | undefined) ??
+      (requestFulfillment['destinations'] as readonly FulfillmentDestination[] | undefined);
     const destinations = resolveDestinationsForUpdate(
       clientDests,
       methodType,
@@ -410,10 +407,7 @@ export function getSelectedFulfillmentCost(fulfillment: Fulfillment | null): num
       if (group.selected_option_id && group.options) {
         const option = group.options.find((o) => o.id === group.selected_option_id);
         if (option) {
-          const optTotal =
-            option.totals.find((t) => t.type === 'total') ??
-            option.totals.find((t) => t.type === 'fulfillment') ??
-            option.totals[0];
+          const optTotal = option.totals.find((t) => t.type === 'total');
           cost += optTotal?.amount ?? 0;
         }
       }
