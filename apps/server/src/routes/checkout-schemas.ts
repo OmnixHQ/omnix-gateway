@@ -85,7 +85,7 @@ const discountsSchema = z
 
 export const createSessionSchema = z.object({
   line_items: z.array(lineItemSchema),
-  currency: z.string().optional(),
+  currency: z.string().min(1).optional(),
   buyer: BuyerClassSchema.extend({
     shipping_address: postalAddressSchema.optional(),
     billing_address: postalAddressSchema.optional(),
@@ -105,7 +105,7 @@ export const createSessionSchema = z.object({
 export const updateSessionSchema = z.object({
   id: z.string().optional(),
   line_items: z.array(lineItemSchema).optional(),
-  currency: z.string().optional(),
+  currency: z.string().min(1).optional(),
   buyer: BuyerClassSchema.extend({
     shipping_address: postalAddressSchema.optional(),
     billing_address: postalAddressSchema.optional(),

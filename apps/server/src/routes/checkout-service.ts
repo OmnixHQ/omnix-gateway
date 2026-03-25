@@ -200,8 +200,21 @@ export async function handleCreateSession(
   );
   if (cartId) updateFields['cart_id'] = cartId;
 
-  const { totals: baseTotals } = await computeCheckoutTotals(lineItems, undefined, 0);
+  const discountCodes = body.discounts?.codes;
+
+  // WHY: only apply discounts here when no fulfillment — the fulfillment branch
+  // recomputes totals with fulfillment cost included, and calling applyCoupon
+  // twice would double-consume single-use coupons on some adapters.
+  const applyDiscountsInBaseTotals = !body.fulfillment;
+  const { totals: baseTotals, discounts: baseDiscounts } = await computeCheckoutTotals(
+    lineItems,
+    applyDiscountsInBaseTotals ? discountCodes : undefined,
+    0,
+    applyDiscountsInBaseTotals ? deps.adapter : undefined,
+    applyDiscountsInBaseTotals ? (cartId ?? undefined) : undefined,
+  );
   updateFields['totals'] = baseTotals;
+  if (baseDiscounts) updateFields['discounts'] = baseDiscounts;
 
   if (body.currency) updateFields['currency'] = body.currency;
   if (body.buyer) updateFields['buyer'] = body.buyer;
@@ -218,11 +231,20 @@ export async function handleCreateSession(
     );
     if (fulfillment) {
       updateFields['fulfillment'] = fulfillment;
-      const totals = computeTotalsWithFulfillment(
+      const fulfillmentCost = extractFulfillmentCost(
         { ...session, line_items: lineItems, fulfillment } as CheckoutSession,
+        lineItems,
         fulfillment,
       );
-      updateFields['totals'] = totals;
+      const { totals: ffTotals, discounts: ffDiscounts } = await computeCheckoutTotals(
+        lineItems,
+        discountCodes,
+        fulfillmentCost,
+        deps.adapter,
+        cartId ?? undefined,
+      );
+      updateFields['totals'] = ffTotals;
+      if (ffDiscounts) updateFields['discounts'] = ffDiscounts;
       if (shouldMarkReadyForComplete(fulfillment)) {
         updateFields['status'] = 'ready_for_complete';
       }
