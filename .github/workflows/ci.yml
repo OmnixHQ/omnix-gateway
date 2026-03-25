@@ -71,6 +71,9 @@ jobs:
       - name: No descriptive comments
         run: bash scripts/no-descriptive-comments.sh
 
+      - name: UCP spec coverage check
+        run: bash scripts/validate-spec-coverage.sh || echo "::warning::Spec coverage gaps detected — see docs/UCP_GAP_ANALYSIS.md"
+
       - name: Format check
         run: npm run format:check
 

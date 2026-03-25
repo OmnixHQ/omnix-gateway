@@ -28,6 +28,16 @@ function generateAddressId(dest: FulfillmentDestination): string {
   return `addr_${hash}`;
 }
 
+function resolveSelectedOptionId(
+  clientSelectedId: string | undefined,
+  options: readonly FulfillmentOption[] | undefined,
+): string | undefined {
+  if (!clientSelectedId || !options || options.length === 0) return clientSelectedId;
+  const exactMatch = options.find((o) => o.id === clientSelectedId);
+  if (exactMatch) return clientSelectedId;
+  return options[0]?.id;
+}
+
 function getStoredAddresses(_email: string | undefined): readonly FulfillmentDestination[] {
   return [];
 }
@@ -223,12 +233,14 @@ export async function buildFulfillmentForCreate(
       await notifyAdapterOfSelectedOption(adapter, cartId, selectedOptionId);
     }
 
+    const resolvedSelectedOptionId = resolveSelectedOptionId(selectedOptionId, options);
+
     const groups: readonly FulfillmentGroup[] = [
       {
         id: `group_${idx}`,
         line_item_ids: lineItemIds,
         options: options ?? undefined,
-        selected_option_id: selectedOptionId,
+        selected_option_id: resolvedSelectedOptionId,
       },
     ];
 
@@ -289,15 +301,17 @@ function mergeGroups(
   lineItemIds: readonly string[],
   idx: number,
 ): readonly FulfillmentGroup[] {
-  const selectedOptionId =
+  const clientSelectedId =
     (clientGroups?.[0]?.['selected_option_id'] as string | undefined) ??
     existingGroups[0]?.selected_option_id;
+  const effectiveOptions = options ?? existingGroups[0]?.options;
+  const selectedOptionId = resolveSelectedOptionId(clientSelectedId, effectiveOptions);
 
   return [
     {
       id: existingGroups[0]?.id ?? `group_${idx}`,
       line_item_ids: lineItemIds,
-      options: options ?? existingGroups[0]?.options,
+      options: effectiveOptions,
       selected_option_id: selectedOptionId,
     },
   ];
