@@ -431,4 +431,105 @@ describe('fulfillment: generateShippingOptions mock fallback', () => {
   it('getSelectedFulfillmentCost returns 0 when no fulfillment', () => {
     expect(getSelectedFulfillmentCost(null)).toBe(0);
   });
+
+  it('getSelectedFulfillmentCost reads fulfillment type total (adapter format)', () => {
+    const fulfillment: Fulfillment = {
+      methods: [
+        {
+          id: 'method_0',
+          type: 'shipping',
+          line_item_ids: ['li-0'],
+          groups: [
+            {
+              id: 'group_0',
+              line_item_ids: ['li-0'],
+              options: [
+                {
+                  id: 'opt-1',
+                  title: 'Flat Rate',
+                  totals: [{ type: 'fulfillment', amount: 500 }],
+                },
+              ],
+              selected_option_id: 'opt-1',
+            },
+          ],
+        },
+      ],
+    };
+    expect(getSelectedFulfillmentCost(fulfillment)).toBe(500);
+  });
+
+  it('getSelectedFulfillmentCost falls back to first total entry', () => {
+    const fulfillment: Fulfillment = {
+      methods: [
+        {
+          id: 'method_0',
+          type: 'shipping',
+          line_item_ids: ['li-0'],
+          groups: [
+            {
+              id: 'group_0',
+              line_item_ids: ['li-0'],
+              options: [
+                {
+                  id: 'opt-1',
+                  title: 'Custom',
+                  totals: [{ type: 'shipping_cost', amount: 750 }],
+                },
+              ],
+              selected_option_id: 'opt-1',
+            },
+          ],
+        },
+      ],
+    };
+    expect(getSelectedFulfillmentCost(fulfillment)).toBe(750);
+  });
+
+  it('getSelectedFulfillmentCost returns 0 when selected option not found', () => {
+    const fulfillment: Fulfillment = {
+      methods: [
+        {
+          id: 'method_0',
+          type: 'shipping',
+          line_item_ids: ['li-0'],
+          groups: [
+            {
+              id: 'group_0',
+              line_item_ids: ['li-0'],
+              options: [
+                {
+                  id: 'opt-1',
+                  title: 'Standard',
+                  totals: [{ type: 'fulfillment', amount: 500 }],
+                },
+              ],
+              selected_option_id: 'nonexistent',
+            },
+          ],
+        },
+      ],
+    };
+    expect(getSelectedFulfillmentCost(fulfillment)).toBe(0);
+  });
+
+  it('getSelectedFulfillmentCost returns 0 when no options on group', () => {
+    const fulfillment: Fulfillment = {
+      methods: [
+        {
+          id: 'method_0',
+          type: 'shipping',
+          line_item_ids: ['li-0'],
+          groups: [
+            {
+              id: 'group_0',
+              line_item_ids: ['li-0'],
+              selected_option_id: 'opt-1',
+            },
+          ],
+        },
+      ],
+    };
+    expect(getSelectedFulfillmentCost(fulfillment)).toBe(0);
+  });
 });
