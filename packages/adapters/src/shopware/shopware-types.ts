@@ -122,6 +122,7 @@ export interface ShopwareCurrencyPrice {
 export interface ShopwareShippingMethodPrice {
   readonly currencyPrice?: readonly ShopwareCurrencyPrice[] | null | undefined;
   readonly price?: number | undefined;
+  readonly quantityStart?: number | undefined;
 }
 
 export interface ShopwareShippingMethod {

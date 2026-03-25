@@ -142,10 +142,12 @@ export function mapShopwareShippingMethod(method: ShopwareShippingMethod): Fulfi
 }
 
 function extractShippingMethodPrice(method: ShopwareShippingMethod): number {
-  const firstPrice = method.prices?.[0];
-  if (!firstPrice) return 0;
-  const currencyGross = firstPrice.currencyPrice?.[0];
+  const prices = method.prices ?? [];
+  if (prices.length === 0) return 0;
+  const bestPrice = prices.reduce((best, current) =>
+    (current.quantityStart ?? 0) > (best.quantityStart ?? 0) ? current : best,
+  );
+  const currencyGross = bestPrice.currencyPrice?.[0];
   if (currencyGross) return grossPriceToCents(currencyGross.gross);
-  if (firstPrice.price !== undefined) return grossPriceToCents(firstPrice.price);
   return 0;
 }

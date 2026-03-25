@@ -179,8 +179,9 @@ export class ShopwareAdapter implements PlatformAdapter {
 
     const response = await this.requestWithToken<ShopwareShippingMethodListResponse>(
       cartId,
-      'GET',
+      'POST',
       '/store-api/shipping-method',
+      { associations: { prices: {} }, limit: 20 },
     );
 
     const options: readonly FulfillmentOption[] = (response.elements ?? []).map(

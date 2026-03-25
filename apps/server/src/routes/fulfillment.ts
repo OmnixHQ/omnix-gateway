@@ -28,6 +28,16 @@ function generateAddressId(dest: FulfillmentDestination): string {
   return `addr_${hash}`;
 }
 
+function resolveSelectedOptionId(
+  clientSelectedId: string | undefined,
+  options: readonly FulfillmentOption[] | undefined,
+): string | undefined {
+  if (!clientSelectedId || !options || options.length === 0) return clientSelectedId;
+  const exactMatch = options.find((o) => o.id === clientSelectedId);
+  if (exactMatch) return clientSelectedId;
+  return options[0]?.id;
+}
+
 function getStoredAddresses(_email: string | undefined): readonly FulfillmentDestination[] {
   return [];
 }
@@ -230,7 +240,7 @@ export async function buildFulfillmentForCreate(
         id: `group_${idx}`,
         line_item_ids: lineItemIds,
         options: options ?? undefined,
-        selected_option_id: selectedOptionId,
+        selected_option_id: resolveSelectedOptionId(selectedOptionId, options),
       },
     ];
 
@@ -306,16 +316,17 @@ function mergeGroups(
   lineItemIds: readonly string[],
   idx: number,
 ): readonly FulfillmentGroup[] {
-  const selectedOptionId =
+  const clientSelectedId =
     (clientGroups?.[0]?.['selected_option_id'] as string | undefined) ??
     existingGroups[0]?.selected_option_id;
+  const effectiveOptions = options ?? existingGroups[0]?.options;
 
   return [
     {
       id: existingGroups[0]?.id ?? `group_${idx}`,
       line_item_ids: lineItemIds,
-      options: options ?? existingGroups[0]?.options,
-      selected_option_id: selectedOptionId,
+      options: effectiveOptions,
+      selected_option_id: resolveSelectedOptionId(clientSelectedId, effectiveOptions),
     },
   ];
 }
@@ -407,7 +418,10 @@ export function getSelectedFulfillmentCost(fulfillment: Fulfillment | null): num
       if (group.selected_option_id && group.options) {
         const option = group.options.find((o) => o.id === group.selected_option_id);
         if (option) {
-          const optTotal = option.totals.find((t) => t.type === 'total');
+          const optTotal =
+            option.totals.find((t) => t.type === 'total') ??
+            option.totals.find((t) => t.type === 'fulfillment') ??
+            option.totals[0];
           cost += optTotal?.amount ?? 0;
         }
       }
