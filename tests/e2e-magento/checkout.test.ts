@@ -13,6 +13,7 @@ interface TotalEntry {
 interface SessionResponse {
   readonly id: string;
   readonly status: string;
+  readonly currency?: string;
   readonly line_items: readonly {
     readonly id: string;
     readonly item: { readonly id: string; readonly title: string; readonly price: number };
@@ -20,6 +21,17 @@ interface SessionResponse {
     readonly totals: readonly TotalEntry[];
   }[];
   readonly totals: readonly TotalEntry[];
+  readonly buyer?: {
+    readonly email?: string;
+    readonly first_name?: string;
+    readonly last_name?: string;
+    readonly full_name?: string;
+    readonly phone_number?: string;
+  };
+  readonly payment?: {
+    readonly instruments?: readonly { readonly id: string; readonly handler_id: string }[];
+    readonly handlers?: readonly { readonly id: string; readonly name: string }[];
+  };
   readonly order?: {
     readonly id: string;
     readonly totals?: readonly TotalEntry[];
@@ -34,7 +46,10 @@ interface SessionResponse {
       }[];
     }[];
   };
-  readonly discounts?: { readonly codes?: readonly string[] };
+  readonly discounts?: {
+    readonly codes?: readonly string[];
+    readonly applied?: readonly unknown[];
+  };
   readonly messages?: readonly { readonly code: string; readonly severity?: string }[];
 }
 
@@ -596,6 +611,137 @@ describe('Magento E2E Checkout', () => {
       if (orderTotal !== undefined && expectedTotal !== undefined) {
         expect(orderTotal).toBe(expectedTotal);
       }
+    });
+  });
+
+  describe('Session create with optional fields', () => {
+    it('create with buyer + line_items populates buyer on session', async () => {
+      const buyer = makeBuyer('create-buyer@ucp-gateway.test');
+      const resp = await postJson('/checkout-sessions', {
+        line_items: makeLineItems(PRODUCT_ID),
+        buyer,
+      });
+      const body = (await resp.json()) as SessionResponse;
+
+      expect(resp.status).toBe(201);
+      expect(body.buyer).toBeDefined();
+      expect(body.buyer?.email).toBe(buyer.email);
+      expect(body.buyer?.first_name).toBe(buyer.first_name);
+      expect(body.buyer?.last_name).toBe(buyer.last_name);
+
+      await postEmpty(`/checkout-sessions/${body.id}/cancel`);
+    });
+
+    it('create with payment handlers echoes them in response', async () => {
+      const payment = makePayment('checkmo');
+      const resp = await postJson('/checkout-sessions', {
+        line_items: makeLineItems(PRODUCT_ID),
+        payment,
+      });
+      const body = (await resp.json()) as SessionResponse;
+
+      expect(resp.status).toBe(201);
+      expect(body.payment).toBeDefined();
+      expect(body.payment?.handlers).toBeDefined();
+      expect(body.payment!.handlers!.length).toBeGreaterThanOrEqual(1);
+
+      await postEmpty(`/checkout-sessions/${body.id}/cancel`);
+    });
+
+    it('create with currency override uses that currency', async () => {
+      const resp = await postJson('/checkout-sessions', {
+        line_items: makeLineItems(PRODUCT_ID),
+        currency: 'EUR',
+      });
+      const body = (await resp.json()) as SessionResponse;
+
+      expect(resp.status).toBe(201);
+      expect(body.currency).toBe('EUR');
+
+      await postEmpty(`/checkout-sessions/${body.id}/cancel`);
+    });
+
+    it('create with fulfillment generates shipping options', async () => {
+      const resp = await postJson('/checkout-sessions', {
+        line_items: makeLineItems(PRODUCT_ID),
+        buyer: makeBuyer('create-fulfillment@ucp-gateway.test'),
+        fulfillment: makeFulfillment(),
+      });
+      const body = (await resp.json()) as SessionResponse;
+
+      expect(resp.status).toBe(201);
+      expect(body.fulfillment).toBeDefined();
+      expect(body.fulfillment?.methods).toBeDefined();
+      expect(body.fulfillment!.methods.length).toBeGreaterThanOrEqual(1);
+
+      const fulfillmentTotal = findTotal(body.totals, 'fulfillment');
+      expect(fulfillmentTotal).toBeDefined();
+
+      await postEmpty(`/checkout-sessions/${body.id}/cancel`);
+    });
+
+    it('create with discounts.codes applies coupon immediately', async () => {
+      const resp = await postJson('/checkout-sessions', {
+        line_items: makeLineItems(PRODUCT_ID),
+        discounts: { codes: ['UCPTEST10'] },
+      });
+      const body = (await resp.json()) as SessionResponse;
+
+      expect(resp.status).toBe(201);
+      expect(body.discounts).toBeDefined();
+      expect(body.discounts?.codes).toBeDefined();
+      expect(body.discounts!.codes).toContain('UCPTEST10');
+
+      await postEmpty(`/checkout-sessions/${body.id}/cancel`);
+    });
+  });
+
+  describe('Session create validation failures', () => {
+    it('create with invalid currency returns 400', async () => {
+      const resp = await postJson('/checkout-sessions', {
+        line_items: makeLineItems(PRODUCT_ID),
+        currency: '',
+      });
+
+      expect(resp.status).toBeGreaterThanOrEqual(400);
+      expect(resp.status).toBeLessThan(500);
+    });
+
+    it('create with invalid buyer (no email, no name) still accepted as all fields optional', async () => {
+      const resp = await postJson('/checkout-sessions', {
+        line_items: makeLineItems(PRODUCT_ID),
+        buyer: {},
+      });
+      const body = (await resp.json()) as SessionResponse;
+
+      expect(resp.status).toBe(201);
+      expect(body.buyer).toBeDefined();
+
+      await postEmpty(`/checkout-sessions/${body.id}/cancel`);
+    });
+
+    it('create with empty body returns 400', async () => {
+      const resp = await fetch(`${GATEWAY_URL}/checkout-sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'UCP-Agent': AGENT_HEADER,
+        },
+        body: JSON.stringify({}),
+      });
+
+      expect(resp.status).toBeGreaterThanOrEqual(400);
+      expect(resp.status).toBeLessThan(500);
+    });
+
+    it('create with no body at all returns 400', async () => {
+      const resp = await fetch(`${GATEWAY_URL}/checkout-sessions`, {
+        method: 'POST',
+        headers: { 'UCP-Agent': AGENT_HEADER },
+      });
+
+      expect(resp.status).toBeGreaterThanOrEqual(400);
+      expect(resp.status).toBeLessThan(500);
     });
   });
 });
