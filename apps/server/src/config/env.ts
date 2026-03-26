@@ -11,7 +11,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1).default('postgresql://ucp:ucp@localhost:5432/ucp'),
   REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
   SECRET_KEY: isProduction ? z.string().min(1) : z.string().min(1).default(DEV_SECRET_KEY_DEFAULT),
-  UCP_SIGNING_KEY_JWK: z.string().optional(),
+  UCP_SIGNING_KEY_JWK: isProduction ? z.string().min(1) : z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

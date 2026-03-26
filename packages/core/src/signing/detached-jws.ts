@@ -1,6 +1,12 @@
-import { CompactSign, compactVerify, decodeProtectedHeader, type CryptoKey } from 'jose';
+import { CompactSign, compactVerify, type CryptoKey } from 'jose';
 
 const DETACHED_SEPARATOR = '..';
+
+function decodeHeader(headerB64: string): Record<string, unknown> {
+  const padded = headerB64.replace(/-/g, '+').replace(/_/g, '/');
+  const json = atob(padded);
+  return JSON.parse(json) as Record<string, unknown>;
+}
 
 export async function signDetachedJws(
   payload: Uint8Array,
@@ -25,8 +31,8 @@ export async function verifyDetachedJws(
       return { valid: false, error: 'Invalid detached JWS format: expected header..signature' };
     }
 
-    const header = decodeProtectedHeader(`${parts[0]}..${parts[1]}`);
-    const kid = header.kid;
+    const header = decodeHeader(parts[0]);
+    const kid = header['kid'] as string | undefined;
     if (!kid) {
       return { valid: false, error: 'Missing kid in JWS header' };
     }
@@ -46,8 +52,8 @@ export function extractKidFromSignature(signature: string): string | null {
   try {
     const parts = signature.split('..');
     if (parts.length !== 2 || !parts[0]) return null;
-    const header = decodeProtectedHeader(`${parts[0]}..${parts[1]}`);
-    return header.kid ?? null;
+    const header = decodeHeader(parts[0]);
+    return (header['kid'] as string) ?? null;
   } catch {
     return null;
   }

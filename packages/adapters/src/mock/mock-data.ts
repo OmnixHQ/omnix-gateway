@@ -112,6 +112,7 @@ export const MOCK_PROFILE: UCPProfile = {
       },
     ],
   },
+  signing_keys: [],
   payment: {
     handlers: [
       {

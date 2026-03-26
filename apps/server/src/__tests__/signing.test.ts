@@ -67,25 +67,30 @@ describe('Key management: generateSigningKeyPair', () => {
 });
 
 describe('Key management: buildKeyId', () => {
-  it('builds a key ID with prefix and YYYYMMDD date stamp', () => {
+  it('builds a key ID with prefix, YYYYMMDD date stamp, and random suffix', () => {
     const kid = buildKeyId('ucp_gw');
-    expect(kid).toMatch(/^ucp_gw_\d{8}$/);
+    expect(kid).toMatch(/^ucp_gw_\d{8}_[0-9a-f]{8}$/);
   });
 
-  it('uses today date', () => {
+  it('includes today date', () => {
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const kid = buildKeyId('test');
-    expect(kid).toBe(`test_${today}`);
+    expect(kid).toMatch(new RegExp(`^test_${today}_[0-9a-f]{8}$`));
   });
 
   it('handles empty prefix', () => {
     const kid = buildKeyId('');
-    expect(kid).toMatch(/^_\d{8}$/);
+    expect(kid).toMatch(/^_\d{8}_[0-9a-f]{8}$/);
   });
 
   it('handles prefix with dots and dashes', () => {
     const kid = buildKeyId('my.service-prod');
-    expect(kid).toMatch(/^my\.service-prod_\d{8}$/);
+    expect(kid).toMatch(/^my\.service-prod_\d{8}_[0-9a-f]{8}$/);
+  });
+
+  it('produces unique IDs on repeated calls', () => {
+    const ids = Array.from({ length: 10 }, () => buildKeyId('test'));
+    expect(new Set(ids).size).toBe(10);
   });
 });
 
@@ -112,6 +117,20 @@ describe('Key management: importPrivateKey', () => {
     const fakeRsa = JSON.stringify({ kty: 'RSA', n: 'abc', e: 'AQAB' });
     await expect(importPrivateKey(fakeRsa)).rejects.toThrow();
   });
+
+  it('rejects EC key missing d (private component)', async () => {
+    const incomplete = JSON.stringify({ kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' });
+    await expect(importPrivateKey(incomplete)).rejects.toThrow();
+  });
+
+  it('rejects EC key with wrong alg', async () => {
+    const pair = await generateSigningKeyPair('alg_check');
+    const fullJwk = await exportJWK(pair.privateKey);
+    const jwkWithBadAlg = { ...fullJwk, kid: 'alg_check', alg: 'RS256' };
+    await expect(importPrivateKey(JSON.stringify(jwkWithBadAlg))).rejects.toThrow(
+      /Expected alg ES256/,
+    );
+  });
 });
 
 describe('Key management: importPublicKeyFromJwk', () => {
@@ -129,6 +148,22 @@ describe('Key management: importPublicKeyFromJwk', () => {
   it('rejects JWK with missing x coordinate', async () => {
     const badJwk = { kty: 'EC', kid: 'bad', crv: 'P-256', y: 'b' } as unknown as JsonWebKey;
     await expect(importPublicKeyFromJwk(badJwk)).rejects.toThrow();
+  });
+
+  it('rejects JWK with wrong alg', async () => {
+    const pair = await generateSigningKeyPair('alg_test');
+    const badJwk: JsonWebKey = { ...pair.publicJwk, alg: 'RS256' };
+    await expect(importPublicKeyFromJwk(badJwk)).rejects.toThrow(/Expected alg ES256/);
+  });
+
+  it('accepts JWK without alg field (infers ES256)', async () => {
+    const pair = await generateSigningKeyPair('no_alg');
+    const fullJwk = pair.publicJwk as Record<string, unknown>;
+    const noAlgJwk = Object.fromEntries(
+      Object.entries(fullJwk).filter(([k]) => k !== 'alg'),
+    ) as unknown as JsonWebKey;
+    const pubKey = await importPublicKeyFromJwk(noAlgJwk);
+    expect(pubKey).toBeDefined();
   });
 });
 
@@ -376,7 +411,7 @@ describe('SigningService: initialization', () => {
     const keys = svc.getPublicKeys();
     expect(keys).toHaveLength(1);
     expect(keys[0]!.kty).toBe('EC');
-    expect(keys[0]!.kid).toMatch(/^ucp_gw_\d{8}$/);
+    expect(keys[0]!.kid).toMatch(/^ucp_gw_\d{8}_[0-9a-f]{8}$/);
   });
 
   it('uses custom keyPrefix', async () => {

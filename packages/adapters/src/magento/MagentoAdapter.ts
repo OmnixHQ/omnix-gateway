@@ -71,6 +71,7 @@ export class MagentoAdapter implements PlatformAdapter {
           },
         ],
       },
+      signing_keys: [],
     };
   }
 

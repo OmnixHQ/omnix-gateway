@@ -16,7 +16,7 @@ export interface UCPProfile {
         readonly handlers?: readonly UCPPaymentHandler[];
       }
     | undefined;
-  readonly signing_keys?: readonly JsonWebKey[] | undefined;
+  readonly signing_keys: readonly JsonWebKey[];
 }
 
 export interface UCPService {

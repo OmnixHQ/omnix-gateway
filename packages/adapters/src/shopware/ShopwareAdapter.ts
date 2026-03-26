@@ -89,6 +89,7 @@ export class ShopwareAdapter implements PlatformAdapter {
           },
         ],
       },
+      signing_keys: [],
     };
   }
 
