@@ -4,6 +4,7 @@ import type { AwilixContainer } from 'awilix';
 import type { Cradle } from '../container/index.js';
 import type { Tenant, PlatformAdapter } from '@ucp-gateway/core';
 import { createAdapterForTenant } from './adapter-factory.js';
+import { buildUCPErrorBody } from '../routes/checkout-helpers.js';
 
 const CACHE_TTL_SECONDS = 300;
 const CACHE_PREFIX = 'tenant:domain:';
@@ -42,31 +43,15 @@ export const tenantResolutionPlugin = fp(async function tenantResolution(
 
     const host = request.hostname;
     if (!host) {
-      return reply.status(404).send({
-        messages: [
-          {
-            type: 'error',
-            code: 'UNKNOWN_STORE',
-            content: 'Missing Host header',
-            severity: 'recoverable',
-          },
-        ],
-      });
+      return reply.status(404).send(buildUCPErrorBody('unknown_store', 'Missing Host header'));
     }
 
     const tenant = await resolveTenantByHost(redis, tenantRepository, host);
 
     if (!tenant) {
-      return reply.status(404).send({
-        messages: [
-          {
-            type: 'error',
-            code: 'UNKNOWN_STORE',
-            content: `No store configured for domain: ${host}`,
-            severity: 'recoverable',
-          },
-        ],
-      });
+      return reply
+        .status(404)
+        .send(buildUCPErrorBody('unknown_store', `No store configured for domain: ${host}`));
     }
 
     request.tenant = tenant;

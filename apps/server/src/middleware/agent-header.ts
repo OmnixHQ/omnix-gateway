@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
+import { buildUCPErrorBody } from '../routes/checkout-helpers.js';
 
 const SKIP_PATHS = new Set(['/health', '/ready']);
 const RFC_8941_PROFILE_PATTERN = /profile="([^"]+)"/;
@@ -41,17 +42,14 @@ export const agentHeaderPlugin = fp(async function agentHeader(
 
     const agentHeader = request.headers['ucp-agent'];
     if (!isValidAgentHeader(agentHeader)) {
-      void reply.status(401).send({
-        messages: [
-          {
-            type: 'error',
-            code: 'INVALID_AGENT',
-            content:
-              'Missing or invalid UCP-Agent header. Format: profile="https://example.com/agent.json"',
-            severity: 'recoverable',
-          },
-        ],
-      });
+      void reply
+        .status(401)
+        .send(
+          buildUCPErrorBody(
+            'invalid_agent',
+            'Missing or invalid UCP-Agent header. Format: profile="https://example.com/agent.json"',
+          ),
+        );
       return;
     }
 
@@ -59,16 +57,14 @@ export const agentHeaderPlugin = fp(async function agentHeader(
 
     const clientVersion = extractAgentVersion(headerStr);
     if (clientVersion && !isVersionSupported(clientVersion)) {
-      void reply.status(400).send({
-        messages: [
-          {
-            type: 'error',
-            code: 'version_unsupported',
-            content: `UCP version ${clientVersion} is not supported. Server supports up to ${SERVER_UCP_VERSION}`,
-            severity: 'recoverable',
-          },
-        ],
-      });
+      void reply
+        .status(400)
+        .send(
+          buildUCPErrorBody(
+            'version_unsupported',
+            `UCP version ${clientVersion} is not supported. Server supports up to ${SERVER_UCP_VERSION}`,
+          ),
+        );
       return;
     }
 

@@ -108,10 +108,10 @@ async function processDiscounts(
       }
 
       applied.push({
-        code,
-        type: discountDef.type as AppliedDiscount['type'],
+        title: discountDef.description,
         amount,
-        description: discountDef.description,
+        code,
+        automatic: false,
       });
     } catch {
       // NOTE: unknown codes are silently ignored

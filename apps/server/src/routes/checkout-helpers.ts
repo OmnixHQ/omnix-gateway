@@ -4,6 +4,7 @@ import type { CheckoutSession, Tenant } from '@ucp-gateway/core';
 import type { Redis as RedisType } from 'ioredis';
 
 const IDEMPOTENCY_TTL_SECONDS = 86400; // 24 hours per spec
+const UCP_VERSION = '2026-01-23';
 
 export type MessageSeverity = 'recoverable' | 'requires_buyer_input' | 'requires_buyer_review';
 
@@ -13,15 +14,45 @@ export function sendSessionError(
   message: string,
   httpStatus: number,
   severity: MessageSeverity = 'recoverable',
+  sessionStatus?: string,
 ): FastifyReply {
   return reply.status(httpStatus).send({
-    detail: message,
+    status: sessionStatus ?? 'incomplete',
     messages: [{ type: 'error', code, content: message, severity }],
+    ucp: {
+      version: UCP_VERSION,
+      capabilities: [{ name: 'dev.ucp.shopping.checkout', version: UCP_VERSION }],
+    },
   });
 }
 
+export function buildUCPErrorBody(
+  code: string,
+  message: string,
+  severity: MessageSeverity = 'recoverable',
+): {
+  readonly messages: readonly {
+    readonly type: 'error';
+    readonly code: string;
+    readonly content: string;
+    readonly severity: string;
+  }[];
+  readonly ucp: {
+    readonly version: string;
+    readonly capabilities: readonly { readonly name: string; readonly version: string }[];
+  };
+} {
+  return {
+    messages: [{ type: 'error' as const, code, content: message, severity }],
+    ucp: {
+      version: UCP_VERSION,
+      capabilities: [{ name: 'dev.ucp.shopping.checkout', version: UCP_VERSION }],
+    },
+  };
+}
+
 export function isSessionExpired(session: CheckoutSession): boolean {
-  return session.status === 'expired';
+  return new Date(session.expires_at).getTime() < Date.now();
 }
 
 export function isSessionOwnedByTenant(session: CheckoutSession, tenant: Tenant): boolean {

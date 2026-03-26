@@ -1,18 +1,10 @@
 import type { FastifyInstance, FastifyError, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
 import { AdapterError } from '@ucp-gateway/core';
+import { buildUCPErrorBody } from '../routes/checkout-helpers.js';
 
-interface ErrorBody {
-  readonly messages: readonly {
-    readonly type: 'error';
-    readonly code: string;
-    readonly content: string;
-    readonly severity: 'recoverable';
-  }[];
-}
-
-function buildErrorBody(code: string, message: string, _httpStatus: number): ErrorBody {
-  return { messages: [{ type: 'error', code, content: message, severity: 'recoverable' }] };
+function buildErrorBody(code: string, message: string): ReturnType<typeof buildUCPErrorBody> {
+  return buildUCPErrorBody(code, message);
 }
 
 function isFastifyValidationError(error: unknown): error is FastifyError & { validation: unknown } {
@@ -41,24 +33,22 @@ export const errorHandlerPlugin = fp(async function errorHandler(
       if (error instanceof AdapterError) {
         return reply
           .status(error.statusCode)
-          .send(buildErrorBody(error.code, error.message, error.statusCode));
+          .send(buildErrorBody(error.code.toLowerCase(), error.message));
       }
 
       if (isFastifyValidationError(error)) {
-        return reply.status(400).send(buildErrorBody('VALIDATION_ERROR', error.message, 400));
+        return reply.status(400).send(buildErrorBody('validation_error', error.message));
       }
 
       if (isFastifyHttpError(error)) {
-        const code = error.statusCode >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_ERROR';
-        return reply
-          .status(error.statusCode)
-          .send(buildErrorBody(code, error.message, error.statusCode));
+        const code = error.statusCode >= 500 ? 'internal_error' : 'request_error';
+        return reply.status(error.statusCode).send(buildErrorBody(code, error.message));
       }
 
       app.log.error(error);
       return reply
         .status(500)
-        .send(buildErrorBody('INTERNAL_ERROR', 'An unexpected error occurred', 500));
+        .send(buildErrorBody('internal_error', 'An unexpected error occurred'));
     },
   );
 });

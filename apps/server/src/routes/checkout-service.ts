@@ -291,9 +291,9 @@ export async function handleUpdateSession(
 
   if (!session) return fail(404, 'missing', `Session not found: ${sessionId}`);
   if (isSessionExpired(session))
-    return fail(410, 'SESSION_EXPIRED', 'Checkout session has expired');
+    return fail(410, 'session_expired', 'Checkout session has expired');
   if (session.status !== 'incomplete' && session.status !== 'ready_for_complete') {
-    return fail(409, 'INVALID_SESSION_STATE', `Cannot modify session in state: ${session.status}`);
+    return fail(409, 'invalid_session_state', `Cannot modify session in state: ${session.status}`);
   }
   if (
     !isSessionOwnedByTenant(session, deps.tenant as Parameters<typeof isSessionOwnedByTenant>[1])
@@ -387,7 +387,7 @@ export async function handleCompleteSession(
 
   if (!session) return fail(404, 'missing', `Session not found: ${sessionId}`);
   if (isSessionExpired(session))
-    return fail(410, 'SESSION_EXPIRED', 'Checkout session has expired');
+    return fail(410, 'session_expired', 'Checkout session has expired');
   if (hasSessionAlreadyCompleted(session)) return succeed(200, session);
   if (
     !isSessionOwnedByTenant(session, deps.tenant as Parameters<typeof isSessionOwnedByTenant>[1])
@@ -398,7 +398,7 @@ export async function handleCompleteSession(
   if (session.status !== 'ready_for_complete' && session.status !== 'complete_in_progress') {
     return fail(
       409,
-      'INVALID_SESSION_STATE',
+      'invalid_session_state',
       `Session must be in ready_for_complete state, got: ${session.status}`,
     );
   }

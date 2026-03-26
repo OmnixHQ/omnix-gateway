@@ -106,7 +106,7 @@ export async function buildTestApp(): Promise<{
         messages: [
           {
             type: 'error',
-            code: 'UNKNOWN_STORE',
+            code: 'unknown_store',
             content: `No store configured for domain: ${host}`,
             severity: 'recoverable',
           },
@@ -138,7 +138,7 @@ export async function buildTestApp(): Promise<{
         messages: [
           {
             type: 'error',
-            code: 'INVALID_AGENT',
+            code: 'invalid_agent',
             content: 'Missing or invalid UCP-Agent header',
             severity: 'recoverable',
           },

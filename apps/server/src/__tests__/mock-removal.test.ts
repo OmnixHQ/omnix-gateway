@@ -107,7 +107,8 @@ describe('computeCheckoutTotals', () => {
     expect(result.discounts!.codes).toEqual(['SAVE10']);
     expect(result.discounts!.applied).toHaveLength(1);
     expect(result.discounts!.applied[0]!.code).toBe('SAVE10');
-    expect(result.discounts!.applied[0]!.type).toBe('percentage');
+    expect(result.discounts!.applied[0]!.title).toBe('10% off');
+    expect(result.discounts!.applied[0]!.automatic).toBe(false);
     // 10% of 10000 = 1000
     expect(result.discounts!.applied[0]!.amount).toBe(1000);
 

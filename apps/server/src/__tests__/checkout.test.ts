@@ -276,6 +276,6 @@ describe('E2E Checkout: MockAdapter full flow', () => {
     });
     expect(res.statusCode).toBe(409);
     const body = JSON.parse(res.body) as { messages: { code: string }[] };
-    expect(body.messages[0]!.code).toBe('INVALID_SESSION_STATE');
+    expect(body.messages[0]!.code).toBe('invalid_session_state');
   });
 });

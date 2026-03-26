@@ -71,7 +71,7 @@ describe('Integration: MockAdapter endpoints', () => {
 
       expect(res.statusCode).toBe(401);
       const body = JSON.parse(res.body) as { messages: { code: string }[] };
-      expect(body.messages[0]!.code).toBe('INVALID_AGENT');
+      expect(body.messages[0]!.code).toBe('invalid_agent');
     });
 
     it('rejects unsupported UCP version', async () => {
@@ -212,7 +212,7 @@ describe('Integration: MockAdapter endpoints', () => {
 
       expect(res.statusCode).toBe(404);
       const body = JSON.parse(res.body) as { messages: { code: string }[] };
-      expect(body.messages[0]!.code).toBe('PRODUCT_NOT_FOUND');
+      expect(body.messages[0]!.code).toBe('product_not_found');
     });
   });
 

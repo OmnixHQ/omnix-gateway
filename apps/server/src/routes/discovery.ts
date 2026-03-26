@@ -9,8 +9,8 @@ function toUCPPaymentHandler(handler: PaymentHandler): UCPPaymentHandler {
     id: handler.id,
     name: handler.name,
     version: UCP_VERSION,
-    spec: UCP_SPEC_URL,
-    config_schema: UCP_SPEC_URL,
+    spec: 'https://ucp.dev/latest/specification/checkout/',
+    config_schema: `https://ucp.dev/${UCP_VERSION}/schemas/shopping/payment-handler.json`,
     instrument_schemas: [],
     config: {},
   };

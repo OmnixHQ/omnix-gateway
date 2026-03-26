@@ -17,7 +17,6 @@ export type SessionStatus =
   | 'complete_in_progress'
   | 'completed'
   | 'canceled'
-  | 'expired'
   | 'requires_escalation';
 
 export interface CheckoutSessionLineItem {
@@ -33,10 +32,11 @@ export interface CheckoutSessionLineItem {
 }
 
 export interface AppliedDiscount {
-  readonly code: string;
-  readonly type: 'percentage' | 'fixed_amount';
+  readonly title: string;
   readonly amount: number;
-  readonly description: string;
+  readonly code?: string | undefined;
+  readonly automatic?: boolean | undefined;
+  readonly method?: 'each' | 'across' | undefined;
 }
 
 export interface CheckoutDiscounts {

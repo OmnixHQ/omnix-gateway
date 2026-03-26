@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { AdapterError } from '@ucp-gateway/core';
+import { buildUCPErrorBody } from './checkout-helpers.js';
 
 const searchQuerySchema = z.object({
   q: z.string().min(1, 'q is required'),
@@ -30,16 +31,14 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
   app.get('/ucp/products', async (request: FastifyRequest, reply: FastifyReply) => {
     const parsed = searchQuerySchema.safeParse(request.query);
     if (!parsed.success) {
-      return reply.status(400).send({
-        messages: [
-          {
-            type: 'error',
-            code: 'VALIDATION_ERROR',
-            content: parsed.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; '),
-            severity: 'recoverable',
-          },
-        ],
-      });
+      return reply
+        .status(400)
+        .send(
+          buildUCPErrorBody(
+            'validation_error',
+            parsed.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; '),
+          ),
+        );
     }
 
     const query = parsed.data;
@@ -67,16 +66,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
       return product;
     } catch (err: unknown) {
       if (err instanceof AdapterError && err.code === 'PRODUCT_NOT_FOUND') {
-        return reply.status(404).send({
-          messages: [
-            {
-              type: 'error',
-              code: 'PRODUCT_NOT_FOUND',
-              content: err.message,
-              severity: 'recoverable',
-            },
-          ],
-        });
+        return reply.status(404).send(buildUCPErrorBody('product_not_found', err.message));
       }
       throw err;
     }

@@ -94,7 +94,11 @@ function buildRawResponse(
       handlers: (options?.paymentHandlers ?? []).map((h) => ({
         id: h.id,
         name: h.name,
-        type: h.type,
+        version: UCP_VERSION,
+        spec: 'https://ucp.dev/latest/specification/checkout/',
+        config_schema: `https://ucp.dev/${UCP_VERSION}/schemas/shopping/payment-handler.json`,
+        instrument_schemas: [],
+        config: {},
       })),
       instruments: [],
     },

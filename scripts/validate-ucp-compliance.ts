@@ -72,7 +72,9 @@ async function runChecks(): Promise<void> {
     method: 'POST',
     url: '/checkout-sessions',
     headers: JA,
-    body: JSON.stringify({ line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
+    body: JSON.stringify({
+      line_items: [{ item: { id: process.env['UCP_PRODUCT_ID'] ?? 'prod-001' }, quantity: 1 }],
+    }),
   });
   check('EP-02 POST /checkout-sessions → 201', cr.statusCode === 201, `${cr.statusCode}`);
   const sid = cr.statusCode === 201 ? (json(cr) as { id: string }).id : 'none';
@@ -86,7 +88,7 @@ async function runChecks(): Promise<void> {
     headers: JA,
     body: JSON.stringify({
       id: sid,
-      line_items: [{ item: { id: 'prod-001' }, quantity: 1 }],
+      line_items: [{ item: { id: process.env['UCP_PRODUCT_ID'] ?? 'prod-001' }, quantity: 1 }],
       buyer: {
         shipping_address: {
           street_address: '1 St',
@@ -103,7 +105,9 @@ async function runChecks(): Promise<void> {
     method: 'POST',
     url: '/checkout-sessions',
     headers: JA,
-    body: JSON.stringify({ line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
+    body: JSON.stringify({
+      line_items: [{ item: { id: process.env['UCP_PRODUCT_ID'] ?? 'prod-001' }, quantity: 1 }],
+    }),
   });
   const sidC = (json(crC) as { id: string }).id;
   await inject({
@@ -190,7 +194,9 @@ async function runChecks(): Promise<void> {
     method: 'POST',
     url: '/checkout-sessions',
     headers: JA,
-    body: JSON.stringify({ line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
+    body: JSON.stringify({
+      line_items: [{ item: { id: process.env['UCP_PRODUCT_ID'] ?? 'prod-001' }, quantity: 1 }],
+    }),
   });
   const sidX = (json(crX) as { id: string }).id;
   const canc = await inject({
@@ -204,7 +210,9 @@ async function runChecks(): Promise<void> {
     method: 'POST',
     url: '/ucp/checkout-sessions',
     headers: JA,
-    body: JSON.stringify({ line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
+    body: JSON.stringify({
+      line_items: [{ item: { id: process.env['UCP_PRODUCT_ID'] ?? 'prod-001' }, quantity: 1 }],
+    }),
   });
   check('EP-07 /ucp/ prefix must NOT exist', old.statusCode === 404, `${old.statusCode}`);
 
@@ -423,7 +431,10 @@ async function runChecks(): Promise<void> {
     method: 'PUT',
     url: `/checkout-sessions/${sidX}`,
     headers: JA,
-    body: JSON.stringify({ id: sidX, line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
+    body: JSON.stringify({
+      id: sidX,
+      line_items: [{ item: { id: process.env['UCP_PRODUCT_ID'] ?? 'prod-001' }, quantity: 1 }],
+    }),
   });
   check(
     'SM-11 canceled session rejects PUT',
@@ -536,7 +547,9 @@ async function runChecks(): Promise<void> {
     method: 'POST',
     url: '/checkout-sessions',
     headers: { ...JA, 'request-id': 'req-123' },
-    body: JSON.stringify({ line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
+    body: JSON.stringify({
+      line_items: [{ item: { id: process.env['UCP_PRODUCT_ID'] ?? 'prod-001' }, quantity: 1 }],
+    }),
   });
   check('HD-05 accepts Request-Id header', withReqId.statusCode === 201, `${withReqId.statusCode}`);
 
@@ -544,7 +557,9 @@ async function runChecks(): Promise<void> {
     method: 'POST',
     url: '/checkout-sessions',
     headers: { ...JA, 'idempotency-key': 'idem-test-001' },
-    body: JSON.stringify({ line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
+    body: JSON.stringify({
+      line_items: [{ item: { id: process.env['UCP_PRODUCT_ID'] ?? 'prod-001' }, quantity: 1 }],
+    }),
   });
   check(
     'HD-06 accepts Idempotency-Key header',
@@ -558,7 +573,9 @@ async function runChecks(): Promise<void> {
     method: 'PATCH',
     url: '/checkout-sessions/test',
     headers: JA,
-    body: JSON.stringify({ line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
+    body: JSON.stringify({
+      line_items: [{ item: { id: process.env['UCP_PRODUCT_ID'] ?? 'prod-001' }, quantity: 1 }],
+    }),
   });
   check(
     'MT-01 PATCH must NOT exist',
@@ -566,7 +583,162 @@ async function runChecks(): Promise<void> {
     `${patch.statusCode}`,
   );
 
-  // ═══ 10. AMOUNTS (§Amounts format) ════════════════════════════════════
+  // ═══ 10. NEW — Phase 1 Spec Compliance Audit (2026-03-26) ═══════════════
+
+  // Error response format
+  const errResp = json(nf);
+  check(
+    'PH1-01 error has ucp envelope',
+    typeof errResp['ucp'] === 'object' && errResp['ucp'] !== null,
+    `keys: ${Object.keys(errResp).join(', ')}`,
+  );
+  check(
+    'PH1-02 error has status field',
+    typeof errResp['status'] === 'string',
+    `${errResp['status']}`,
+  );
+  check(
+    'PH1-03 error has no detail field',
+    errResp['detail'] === undefined,
+    errResp['detail'] !== undefined ? 'detail leaked' : '',
+  );
+  if (Array.isArray(errResp['messages']) && (errResp['messages'] as unknown[]).length > 0) {
+    const errMsg = (errResp['messages'] as Record<string, unknown>[])[0]!;
+    const errCode = errMsg['code'] as string;
+    check(
+      'PH1-04 error code lowercase snake_case',
+      errCode === errCode.toLowerCase(),
+      `${errCode}`,
+    );
+  }
+
+  // Payment handler required fields
+  const checkoutResp = json(cr);
+  const paymentObj = checkoutResp['payment'] as Record<string, unknown> | undefined;
+  if (paymentObj) {
+    const handlers = paymentObj['handlers'] as Record<string, unknown>[] | undefined;
+    if (Array.isArray(handlers) && handlers.length > 0) {
+      const h0 = handlers[0]!;
+      check('PH1-05 handler has version', typeof h0['version'] === 'string', `${h0['version']}`);
+      check('PH1-06 handler has spec', typeof h0['spec'] === 'string', `${h0['spec']}`);
+      check(
+        'PH1-07 handler has config_schema',
+        typeof h0['config_schema'] === 'string',
+        `${h0['config_schema']}`,
+      );
+      check(
+        'PH1-08 handler has instrument_schemas',
+        Array.isArray(h0['instrument_schemas']),
+        `${typeof h0['instrument_schemas']}`,
+      );
+      check(
+        'PH1-09 handler has config',
+        typeof h0['config'] === 'object',
+        `${typeof h0['config']}`,
+      );
+      check(
+        'PH1-10 handler has no type field',
+        h0['type'] === undefined,
+        h0['type'] !== undefined ? `leaked: ${h0['type']}` : '',
+      );
+    }
+  }
+
+  // Session status enum (no expired)
+  check(
+    'PH1-11 status is not expired',
+    checkoutResp['status'] !== 'expired',
+    `${checkoutResp['status']}`,
+  );
+
+  // Capabilities include fulfillment + discounts
+  const ucpEnv = checkoutResp['ucp'] as Record<string, unknown> | undefined;
+  if (ucpEnv) {
+    const respCaps = ucpEnv['capabilities'] as Record<string, unknown>[];
+    if (Array.isArray(respCaps)) {
+      const capNames = respCaps.map((c) => c['name'] as string);
+      check(
+        'PH1-12 has fulfillment capability',
+        capNames.includes('dev.ucp.shopping.fulfillment'),
+        capNames.join(', '),
+      );
+      check(
+        'PH1-13 has discounts capability',
+        capNames.includes('dev.ucp.shopping.discounts'),
+        capNames.join(', '),
+      );
+    }
+  }
+
+  // Discovery profile capabilities
+  const discProf = json(disc);
+  const discCaps = (discProf['ucp'] as Record<string, unknown>)?.['capabilities'] as
+    | Record<string, unknown>[]
+    | undefined;
+  if (Array.isArray(discCaps)) {
+    const discCapNames = discCaps.map((c) => c['name'] as string);
+    check(
+      'PH1-14 discovery has fulfillment cap',
+      discCapNames.includes('dev.ucp.shopping.fulfillment'),
+      discCapNames.join(', '),
+    );
+    check(
+      'PH1-15 discovery has discounts cap',
+      discCapNames.includes('dev.ucp.shopping.discounts'),
+      discCapNames.join(', '),
+    );
+  }
+
+  // Idempotency on cancel
+  const idemCancelSession = await inject({
+    method: 'POST',
+    url: '/checkout-sessions',
+    headers: JA,
+    body: JSON.stringify({
+      line_items: [{ item: { id: process.env['UCP_PRODUCT_ID'] ?? 'prod-001' }, quantity: 1 }],
+    }),
+  });
+  const idemSid = (json(idemCancelSession) as { id: string }).id;
+  const idemCancel1 = await inject({
+    method: 'POST',
+    url: `/checkout-sessions/${idemSid}/cancel`,
+    headers: { ...A, 'idempotency-key': 'idem-cancel-validator' },
+  });
+  const idemCancel2 = await inject({
+    method: 'POST',
+    url: `/checkout-sessions/${idemSid}/cancel`,
+    headers: { ...A, 'idempotency-key': 'idem-cancel-validator' },
+  });
+  check(
+    'PH1-16 idempotency on cancel',
+    idemCancel1.statusCode === 200 && idemCancel2.statusCode === 200,
+    `${idemCancel1.statusCode}, ${idemCancel2.statusCode}`,
+  );
+  check('PH1-17 idempotent cancel returns same body', idemCancel1.body === idemCancel2.body, '');
+
+  // Update requires id
+  const idReqSession = await inject({
+    method: 'POST',
+    url: '/checkout-sessions',
+    headers: JA,
+    body: JSON.stringify({
+      line_items: [{ item: { id: process.env['UCP_PRODUCT_ID'] ?? 'prod-001' }, quantity: 1 }],
+    }),
+  });
+  const idReqSid = (json(idReqSession) as { id: string }).id;
+  const noIdUpdate = await inject({
+    method: 'PUT',
+    url: `/checkout-sessions/${idReqSid}`,
+    headers: JA,
+    body: JSON.stringify({ buyer: { email: 'test@test.com' } }),
+  });
+  check(
+    'PH1-18 update without id rejects',
+    noIdUpdate.statusCode === 400,
+    `${noIdUpdate.statusCode}`,
+  );
+
+  // ═══ 11. AMOUNTS (§Amounts format) ════════════════════════════════════
 
   const ut = json(pr)['totals'] as Record<string, unknown>[] | undefined;
   if (Array.isArray(ut) && ut.length > 0) {
@@ -620,6 +792,7 @@ async function main(): Promise<void> {
   console.log(`Results: ${pass} passed, ${fail} failed, ${results.length} total`);
   console.log('Coverage: endpoints(7) profile(15) session(19) state-machine(11)');
   console.log('  continue_url(2) errors(10) content-type(3) headers(6) methods(1) amounts(3)');
+  console.log('  phase1-audit(18)');
 
   if (fail > 0) {
     console.log('\nFailed:');
@@ -629,4 +802,4 @@ async function main(): Promise<void> {
   console.log('\nAll checks passed!');
 }
 
-await main();
+void main();

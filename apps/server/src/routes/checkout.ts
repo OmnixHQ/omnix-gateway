@@ -2,7 +2,13 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import type { PlatformAdapter, PaymentHandler } from '@ucp-gateway/core';
 import { AdapterError } from '@ucp-gateway/core';
-import { sendSessionError, type MessageSeverity } from './checkout-helpers.js';
+import {
+  sendSessionError,
+  checkIdempotencyKey,
+  storeIdempotencyRecord,
+  computeRequestHash,
+  type MessageSeverity,
+} from './checkout-helpers.js';
 import {
   toPublicCheckoutResponse,
   type TenantLinkSettings,
@@ -94,6 +100,19 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
   app.put<{ Params: { id: string } }>(
     '/checkout-sessions/:id',
     async (request, reply: FastifyReply) => {
+      const idempotencyKey = request.headers['idempotency-key'] as string | undefined;
+      if (idempotencyKey) {
+        const redis = app.container.resolve('redis');
+        const check = await checkIdempotencyKey(
+          redis,
+          request.tenant.id,
+          idempotencyKey,
+          request.body,
+          reply,
+        );
+        if (check?.cached) return check.reply;
+      }
+
       const parsed = updateSessionSchema.safeParse(request.body);
       if (!parsed.success) return sendValidationError(reply, parsed.error);
 
@@ -109,13 +128,41 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       );
 
       const options = await buildResponseOptions(request);
-      return sendResult(reply, result, options);
+      const response = sendResult(reply, result, options);
+
+      if (idempotencyKey && result.ok) {
+        const redis = app.container.resolve('redis');
+        const hash = computeRequestHash(request.body);
+        const body = JSON.stringify(toPublicCheckoutResponse(result.session, options));
+        await storeIdempotencyRecord(
+          redis,
+          request.tenant.id,
+          idempotencyKey,
+          hash,
+          result.statusCode,
+          body,
+        );
+      }
+      return response;
     },
   );
 
   app.post<{ Params: { id: string } }>(
     '/checkout-sessions/:id/complete',
     async (request, reply: FastifyReply) => {
+      const idempotencyKey = request.headers['idempotency-key'] as string | undefined;
+      if (idempotencyKey) {
+        const redis = app.container.resolve('redis');
+        const check = await checkIdempotencyKey(
+          redis,
+          request.tenant.id,
+          idempotencyKey,
+          request.body,
+          reply,
+        );
+        if (check?.cached) return check.reply;
+      }
+
       const parsed = completeSessionSchema.safeParse(request.body);
       if (!parsed.success) return sendValidationError(reply, parsed.error);
 
@@ -131,13 +178,41 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       );
 
       const options = await buildResponseOptions(request);
-      return sendResult(reply, result, options);
+      const response = sendResult(reply, result, options);
+
+      if (idempotencyKey && result.ok) {
+        const redis = app.container.resolve('redis');
+        const hash = computeRequestHash(request.body);
+        const body = JSON.stringify(toPublicCheckoutResponse(result.session, options));
+        await storeIdempotencyRecord(
+          redis,
+          request.tenant.id,
+          idempotencyKey,
+          hash,
+          result.statusCode,
+          body,
+        );
+      }
+      return response;
     },
   );
 
   app.post<{ Params: { id: string } }>(
     '/checkout-sessions/:id/cancel',
     async (request, reply: FastifyReply) => {
+      const idempotencyKey = request.headers['idempotency-key'] as string | undefined;
+      if (idempotencyKey) {
+        const redis = app.container.resolve('redis');
+        const check = await checkIdempotencyKey(
+          redis,
+          request.tenant.id,
+          idempotencyKey,
+          request.body ?? {},
+          reply,
+        );
+        if (check?.cached) return check.reply;
+      }
+
       const sessionStore = app.container.resolve('sessionStore');
       const session = await sessionStore.get(request.params.id);
 
@@ -148,7 +223,7 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       if (session.status === 'completed')
         return sendSessionError(
           reply,
-          'INVALID_SESSION_STATE',
+          'invalid_session_state',
           'Cannot cancel a completed session',
           409,
         );
@@ -157,7 +232,21 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(200).send(toPublicCheckoutResponse(session, options));
 
       const canceled = await sessionStore.update(request.params.id, { status: 'canceled' });
-      return reply.status(200).send(toPublicCheckoutResponse(canceled ?? session, options));
+      const responseBody = toPublicCheckoutResponse(canceled ?? session, options);
+
+      if (idempotencyKey) {
+        const redis = app.container.resolve('redis');
+        const hash = computeRequestHash(request.body ?? {});
+        await storeIdempotencyRecord(
+          redis,
+          request.tenant.id,
+          idempotencyKey,
+          hash,
+          200,
+          JSON.stringify(responseBody),
+        );
+      }
+      return reply.status(200).send(responseBody);
     },
   );
 
