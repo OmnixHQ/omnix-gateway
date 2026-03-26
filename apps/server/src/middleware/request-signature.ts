@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
-import { SigningService } from '@ucp-gateway/core';
+import { SigningService, extractKidFromSignature } from '@ucp-gateway/core';
 
 const SKIP_PATHS = new Set(['/health', '/ready']);
 const REQUEST_SIGNATURE_HEADER = 'request-signature';
@@ -19,16 +19,16 @@ declare module 'fastify' {
     signingService: SigningService;
   }
   interface FastifyRequest {
-    signatureVerified?: boolean | undefined;
+    signatureKid?: string | undefined;
   }
 }
 
 export const requestSignaturePlugin = fp(async function requestSignature(
   app: FastifyInstance,
 ): Promise<void> {
-  app.decorateRequest('signatureVerified', undefined);
+  app.decorateRequest('signatureKid', undefined);
 
-  app.addHook('preHandler', async (request: FastifyRequest, _reply: FastifyReply) => {
+  app.addHook('onRequest', async (request: FastifyRequest, _reply: FastifyReply) => {
     if (shouldSkipSignatureCheck(request.url)) return;
     if (!hasBody(request.method)) return;
 
@@ -36,29 +36,11 @@ export const requestSignaturePlugin = fp(async function requestSignature(
     if (!signatureHeader || typeof signatureHeader !== 'string') return;
 
     // WHY: best-effort — agents rarely sign yet; enforcement deferred to later phase
-    try {
-      const rawBody =
-        typeof request.body === 'string' ? request.body : JSON.stringify(request.body ?? '');
-      const bodyBytes = new TextEncoder().encode(rawBody);
-      const signingKeys = app.signingService.getPublicKeys();
-      const result = await app.signingService.verify(signatureHeader, bodyBytes, signingKeys);
-
-      request.signatureVerified = result.valid;
-      request.log.info(
-        {
-          signatureValid: result.valid,
-          error: result.valid ? undefined : result.error,
-          method: request.method,
-          url: request.url,
-        },
-        'Request-Signature verification result',
-      );
-    } catch (err) {
-      request.signatureVerified = false;
-      request.log.warn(
-        { err, method: request.method, url: request.url },
-        'Request-Signature verification failed unexpectedly',
-      );
-    }
+    const kid = extractKidFromSignature(signatureHeader);
+    request.signatureKid = kid ?? undefined;
+    request.log.info(
+      { kid, method: request.method, url: request.url },
+      'Request-Signature header present',
+    );
   });
 });
