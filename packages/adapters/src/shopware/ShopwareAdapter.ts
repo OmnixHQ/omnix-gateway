@@ -443,8 +443,6 @@ export class ShopwareAdapter implements PlatformAdapter {
     }
 
     const response = await fetch(url, options);
-    // Only update instance token for unauthenticated requests (getProfile etc.)
-    // Token-scoped requests pass their token explicitly — no instance mutation needed.
     if (contextToken === undefined) {
       this.storeContextToken(response);
     }

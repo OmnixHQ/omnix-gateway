@@ -108,9 +108,11 @@ else:
   if d.get('data'): print(d['data'][0]['id'])
 " 2>/dev/null || true)
 
-DOMAIN_ID=$(curl -s "${SHOPWARE_URL}/api/sales-channel-domain?filter[salesChannelId]=${SC_ID}" \
+DOMAIN_ID=$(curl -s -X POST "${SHOPWARE_URL}/api/search/sales-channel-domain" \
   -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  -H 'Content-Type: application/json' \
   -H 'Accept: application/json' \
+  -d "{\"filter\":[{\"type\":\"equals\",\"field\":\"salesChannelId\",\"value\":\"${SC_ID}\"}],\"limit\":1}" \
   | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
