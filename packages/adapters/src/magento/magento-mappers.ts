@@ -109,6 +109,7 @@ export function mapShippingMethodToFulfillmentOption(
 
 export function mapShippingMethodsToFulfillment(
   methods: readonly MagentoShippingMethod[],
+  lineItemIds: readonly string[] = [],
 ): Fulfillment {
   const availableMethods = methods.filter((m) => m.available);
   const options = availableMethods.map(mapShippingMethodToFulfillmentOption);
@@ -118,11 +119,11 @@ export function mapShippingMethodsToFulfillment(
       {
         id: 'shipping',
         type: 'shipping',
-        line_item_ids: [],
+        line_item_ids: [...lineItemIds],
         groups: [
           {
             id: 'default',
-            line_item_ids: [],
+            line_item_ids: [...lineItemIds],
             options,
           },
         ],

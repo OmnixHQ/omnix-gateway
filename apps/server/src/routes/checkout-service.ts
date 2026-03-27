@@ -24,7 +24,7 @@ import {
 } from './fulfillment.js';
 import { computeCheckoutTotals } from './checkout-pricing.js';
 import { createPlatformCart } from './checkout-cart.js';
-import { validateFulfillmentSelected, shouldMarkReadyForComplete } from './checkout-validation.js';
+import { validateFulfillmentSelected, computeSessionStatus } from './checkout-validation.js';
 import { toPublicCheckoutResponse, type TenantLinkSettings } from './checkout-response.js';
 import type {
   createSessionSchema,
@@ -248,11 +248,11 @@ export async function handleCreateSession(
       );
       updateFields['totals'] = ffTotals;
       if (ffDiscounts) updateFields['discounts'] = ffDiscounts;
-      if (shouldMarkReadyForComplete(fulfillment)) {
-        updateFields['status'] = 'ready_for_complete';
-      }
     }
   }
+
+  const projectedSession = { ...session, ...updateFields } as typeof session;
+  updateFields['status'] = computeSessionStatus(projectedSession);
 
   const result =
     Object.keys(updateFields).length > 0
@@ -339,9 +339,6 @@ export async function handleUpdateSession(
       );
       updateData['totals'] = totals;
       if (discounts) updateData['discounts'] = discounts;
-      if (shouldMarkReadyForComplete(fulfillment)) {
-        updateData['status'] = 'ready_for_complete';
-      }
     }
   } else if (discountCodes && discountCodes.length > 0) {
     const existingFulfillment = session.fulfillment;
@@ -364,10 +361,10 @@ export async function handleUpdateSession(
       : 0;
     const { totals } = await computeCheckoutTotals(effectiveLineItems, undefined, fulfillmentCost);
     updateData['totals'] = totals;
-    if (updateData['shipping_address']) {
-      updateData['status'] = 'ready_for_complete';
-    }
   }
+
+  const projectedUpdate = { ...session, ...updateData } as typeof session;
+  updateData['status'] = computeSessionStatus(projectedUpdate);
 
   const updated = await deps.sessionStore.update(sessionId, updateData);
   return succeed(200, updated ?? session);
@@ -435,7 +432,13 @@ export async function handleCompleteSession(
       token: paymentTokenValue,
       provider: selectedInstrument.handler_id,
     };
-    const placedOrder = await deps.adapter.placeOrder(cartId, paymentToken);
+    const placedOrder = await deps.adapter.placeOrder(cartId, paymentToken, {
+      shipping_address: session.shipping_address ?? undefined,
+      billing_address: session.billing_address ?? undefined,
+      buyer_email: session.buyer?.email ?? undefined,
+      selected_shipping_method:
+        session.fulfillment?.methods[0]?.groups[0]?.selected_option_id ?? undefined,
+    });
 
     const orderFulfillment = buildOrderFulfillment(session);
     const ucpOrder: UCPOrder = {

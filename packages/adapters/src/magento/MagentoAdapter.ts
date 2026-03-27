@@ -6,6 +6,7 @@ import type {
   Cart,
   LineItem,
   CheckoutContext,
+  PlaceOrderContext,
   Total,
   PaymentToken,
   PaymentHandler,
@@ -156,12 +157,16 @@ export class MagentoAdapter implements PlatformAdapter {
     destination: FulfillmentDestination,
   ): Promise<Fulfillment> {
     const address = buildEstimateAddress(destination);
-    const methods = await this.post<readonly MagentoShippingMethod[]>(
-      `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/estimate-shipping-methods`,
-      { address },
-    );
+    const [methods, cartItems] = await Promise.all([
+      this.post<readonly MagentoShippingMethod[]>(
+        `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/estimate-shipping-methods`,
+        { address },
+      ),
+      this.get<MagentoCartItem[]>(`/rest/V1/guest-carts/${encodeURIComponent(cartId)}/items`),
+    ]);
 
-    return mapShippingMethodsToFulfillment(methods);
+    const lineItemIds = cartItems.map((item) => item.sku);
+    return mapShippingMethodsToFulfillment(methods, lineItemIds);
   }
 
   async setShippingMethod(cartId: string, methodId: string): Promise<void> {
@@ -254,9 +259,10 @@ export class MagentoAdapter implements PlatformAdapter {
   private async setBillingAddressWithEmail(
     cartId: string,
     address: Record<string, unknown>,
+    email: string = 'guest@ucp-gateway.local',
   ): Promise<void> {
     await this.post<number>(`/rest/V1/guest-carts/${encodeURIComponent(cartId)}/billing-address`, {
-      address: { ...address, email: 'guest@ucp-gateway.local' },
+      address: { ...address, email },
     });
   }
 
@@ -268,27 +274,44 @@ export class MagentoAdapter implements PlatformAdapter {
    * Place an order on Magento.
    * Magento requires: shipping address -> shipping method -> billing -> payment -> order.
    */
-  async placeOrder(cartId: string, payment: PaymentToken): Promise<PlatformOrder> {
+  async placeOrder(
+    cartId: string,
+    payment: PaymentToken,
+    context?: PlaceOrderContext,
+  ): Promise<PlatformOrder> {
     const magentoMethod = mapPaymentHandlerToMagentoMethod(payment.provider);
+    const email = context?.buyer_email ?? 'guest@ucp-gateway.local';
 
-    const defaultAddress = {
-      firstname: 'Guest',
-      lastname: 'Checkout',
-      street: ['N/A'],
-      city: 'New York',
-      region_code: 'NY',
-      postcode: '10001',
-      country_id: 'US',
-      telephone: '0000000000',
-    };
+    const shippingAddr = context?.shipping_address
+      ? buildMagentoShippingAddress(context.shipping_address)
+      : {
+          firstname: 'Guest',
+          lastname: 'Checkout',
+          street: ['N/A'],
+          city: 'New York',
+          region_code: 'NY',
+          postcode: '10001',
+          country_id: 'US',
+          telephone: '0000000000',
+        };
+
+    const billingAddr = context?.billing_address
+      ? buildMagentoShippingAddress(context.billing_address)
+      : shippingAddr;
+
+    const shippingMethodParts = (context?.selected_shipping_method ?? 'flatrate_flatrate').split(
+      '_',
+    );
+    const carrierCode = shippingMethodParts[0] ?? 'flatrate';
+    const methodCode = shippingMethodParts.slice(1).join('_') || 'flatrate';
 
     try {
       await this.post(`/rest/V1/guest-carts/${encodeURIComponent(cartId)}/shipping-information`, {
         addressInformation: {
-          shipping_address: { ...defaultAddress, email: 'guest@ucp-gateway.local' },
-          billing_address: { ...defaultAddress, email: 'guest@ucp-gateway.local' },
-          shipping_carrier_code: 'flatrate',
-          shipping_method_code: 'flatrate',
+          shipping_address: { ...shippingAddr, email },
+          billing_address: { ...billingAddr, email },
+          shipping_carrier_code: carrierCode,
+          shipping_method_code: methodCode,
         },
       });
     } catch {

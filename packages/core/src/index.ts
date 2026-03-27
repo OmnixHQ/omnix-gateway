@@ -19,6 +19,7 @@ export type {
   Cart,
   LineItem,
   CheckoutContext,
+  PlaceOrderContext,
   Total,
   TotalType,
   PostalAddress,

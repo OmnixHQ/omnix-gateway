@@ -9,7 +9,10 @@ export type AdapterErrorCode =
   | 'COUPON_NOT_FOUND'
   | 'OUT_OF_STOCK'
   | 'INVALID_PAYMENT'
-  | 'PLATFORM_ERROR';
+  | 'PLATFORM_ERROR'
+  | 'NOT_FOUND'
+  | 'COUNTRY_NOT_FOUND'
+  | 'SHIPPING_METHOD_NOT_FOUND';
 
 export class AdapterError extends Error {
   readonly code: AdapterErrorCode;
@@ -23,10 +26,7 @@ export class AdapterError extends Error {
   }
 }
 
-export function notFound(
-  code: 'PRODUCT_NOT_FOUND' | 'ORDER_NOT_FOUND' | 'CART_NOT_FOUND',
-  id: string,
-): AdapterError {
+export function notFound(code: AdapterErrorCode, id: string): AdapterError {
   return new AdapterError(code, `${code}: ${id}`, 404);
 }
 

@@ -90,12 +90,25 @@ async function runChecks(): Promise<void> {
       id: sid,
       line_items: [{ item: { id: process.env['UCP_PRODUCT_ID'] ?? 'prod-001' }, quantity: 1 }],
       buyer: {
+        email: 'validator@ucp.test',
+        first_name: 'UCP',
+        last_name: 'Validator',
         shipping_address: {
           street_address: '1 St',
           address_locality: 'NY',
           postal_code: '10001',
           address_country: 'US',
         },
+      },
+      fulfillment: {
+        methods: [
+          {
+            id: 'shipping',
+            type: 'shipping',
+            selected_destination_id: 'dest-1',
+            groups: [{ id: 'default', selected_option_id: 'flatrate_flatrate' }],
+          },
+        ],
       },
     }),
   });
