@@ -34,7 +34,11 @@ export interface PlatformAdapter {
   ): Promise<PlatformOrder>;
   getOrder(id: string): Promise<PlatformOrder>;
   getFulfillmentOptions(cartId: string, destination: FulfillmentDestination): Promise<Fulfillment>;
-  setShippingMethod(cartId: string, methodId: string): Promise<void>;
+  setShippingMethod(
+    cartId: string,
+    methodId: string,
+    destination?: FulfillmentDestination,
+  ): Promise<void>;
   getSupportedPaymentMethods(): Promise<readonly PaymentHandler[]>;
   applyCoupon(
     cartId: string,

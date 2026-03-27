@@ -232,7 +232,11 @@ export class ShopwareAdapter implements PlatformAdapter {
     };
   }
 
-  async setShippingMethod(cartId: string, shippingMethodId: string): Promise<void> {
+  async setShippingMethod(
+    cartId: string,
+    shippingMethodId: string,
+    _destination?: unknown,
+  ): Promise<void> {
     await this.requestWithToken(cartId, 'PATCH', '/store-api/context', { shippingMethodId });
   }
 
@@ -312,14 +316,11 @@ export class ShopwareAdapter implements PlatformAdapter {
     const city = addr?.address_locality ?? 'New York';
     const zipcode = addr?.postal_code ?? '10001';
 
-    const savedToken = this.contextToken;
-    this.contextToken = cartId;
-
     try {
       const url = `${this.storeUrl}/store-api/account/register`;
       const response = await fetch(url, {
         method: 'POST',
-        headers: this.buildHeaders(),
+        headers: this.buildHeaders(cartId),
         body: JSON.stringify({
           guest: true,
           email,
@@ -355,8 +356,6 @@ export class ShopwareAdapter implements PlatformAdapter {
       return cartId;
     } catch {
       return cartId;
-    } finally {
-      this.contextToken = savedToken;
     }
   }
 
@@ -378,14 +377,15 @@ export class ShopwareAdapter implements PlatformAdapter {
     );
   }
 
-  private buildHeaders(): Record<string, string> {
+  private buildHeaders(contextToken?: string): Record<string, string> {
     const headers: Record<string, string> = {
       'sw-access-key': this.accessKey,
       Accept: 'application/json',
       'Content-Type': 'application/json',
     };
-    if (this.contextToken !== undefined) {
-      headers['sw-context-token'] = this.contextToken;
+    const token = contextToken ?? this.contextToken;
+    if (token !== undefined) {
+      headers['sw-context-token'] = token;
     }
     return headers;
   }
@@ -424,27 +424,30 @@ export class ShopwareAdapter implements PlatformAdapter {
     path: string,
     body?: unknown,
   ): Promise<T> {
-    const savedToken = this.contextToken;
-    this.contextToken = contextToken;
-    try {
-      return await this.request<T>(method, path, body);
-    } finally {
-      this.contextToken = savedToken;
-    }
+    return this.request<T>(method, path, body, contextToken);
   }
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    contextToken?: string,
+  ): Promise<T> {
     const url = `${this.storeUrl}${path}`;
     const options: RequestInit = {
       method,
-      headers: this.buildHeaders(),
+      headers: this.buildHeaders(contextToken),
     };
     if (body !== undefined) {
       options.body = JSON.stringify(body);
     }
 
     const response = await fetch(url, options);
-    this.storeContextToken(response);
+    // Only update instance token for unauthenticated requests (getProfile etc.)
+    // Token-scoped requests pass their token explicitly — no instance mutation needed.
+    if (contextToken === undefined) {
+      this.storeContextToken(response);
+    }
 
     if (!response.ok) {
       if (response.status === 404) {

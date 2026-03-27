@@ -173,28 +173,34 @@ export class MagentoAdapter implements PlatformAdapter {
     return mapShippingMethodsToFulfillment(methods, lineItemIds);
   }
 
-  async setShippingMethod(cartId: string, methodId: string): Promise<void> {
+  async setShippingMethod(
+    cartId: string,
+    methodId: string,
+    destination?: FulfillmentDestination,
+  ): Promise<void> {
     const separatorIndex = methodId.indexOf('_');
     const carrierCode = separatorIndex > 0 ? methodId.slice(0, separatorIndex) : methodId;
     const methodCode = separatorIndex > 0 ? methodId.slice(separatorIndex + 1) : methodId;
 
-    const defaultAddress = {
-      firstname: 'Guest',
-      lastname: 'Checkout',
-      street: ['123 Main St'],
-      city: 'New York',
-      postcode: '10001',
-      region_code: 'NY',
-      country_id: 'US',
-      telephone: '0000000000',
-    };
+    const addr = destination?.address;
+    const shippingAddress = addr
+      ? buildMagentoShippingAddress(addr)
+      : {
+          firstname: 'Guest',
+          lastname: 'Checkout',
+          street: ['123 Main St'],
+          city: 'New York',
+          postcode: '10001',
+          region_code: 'NY',
+          country_id: destination?.address_country ?? 'US',
+        };
 
     await this.post<MagentoShippingInfoResponse>(
       `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/shipping-information`,
       {
         addressInformation: {
-          shipping_address: defaultAddress,
-          billing_address: defaultAddress,
+          shipping_address: shippingAddress,
+          billing_address: shippingAddress,
           shipping_carrier_code: carrierCode,
           shipping_method_code: methodCode,
         },
@@ -239,14 +245,18 @@ export class MagentoAdapter implements PlatformAdapter {
       ? buildMagentoShippingAddress(ctx.billing_address)
       : shippingAddress;
 
+    const methodParts = (ctx.selected_shipping_method ?? 'flatrate_flatrate').split('_');
+    const carrierCode = methodParts[0] ?? 'flatrate';
+    const methodCode = methodParts.slice(1).join('_') || 'flatrate';
+
     await this.post<MagentoShippingInfoResponse>(
       `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/shipping-information`,
       {
         addressInformation: {
           shipping_address: shippingAddress,
           billing_address: billingAddress,
-          shipping_carrier_code: 'flatrate',
-          shipping_method_code: 'flatrate',
+          shipping_carrier_code: carrierCode,
+          shipping_method_code: methodCode,
         },
       },
     );

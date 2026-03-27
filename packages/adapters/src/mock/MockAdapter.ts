@@ -221,7 +221,11 @@ export class MockAdapter implements PlatformAdapter {
     };
   }
 
-  async setShippingMethod(_cartId: string, _methodId: string): Promise<void> {
+  async setShippingMethod(
+    _cartId: string,
+    _methodId: string,
+    _destination?: unknown,
+  ): Promise<void> {
     return;
   }
 
