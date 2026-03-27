@@ -95,25 +95,27 @@ echo "$ACCESS_KEY" > "$SCRIPT_DIR/.shopware-access-key"
 # ── 4. Update sales channel domain to SHOPWARE_URL ───────────────────────
 # Shopware validates storefrontUrl in guest registration against sales channel domains.
 echo "4. Updating sales channel domain to $SHOPWARE_URL..."
-SC_DATA=$(curl -s "${SHOPWARE_URL}/api/sales-channel?associations[domains][]=" \
+SC_ID=$(curl -s "${SHOPWARE_URL}/api/sales-channel" \
   -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-  -H 'Accept: application/json' || true)
-
-SC_ID=$(echo "$SC_DATA" | python3 -c "
+  -H 'Accept: application/json' \
+  | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
-els=d.get('data',[])
-print(els[0].get('id','') if els else '')" 2>/dev/null || true)
-
-DOMAIN_ID=$(echo "$SC_DATA" | python3 -c "
-import sys,json
-d=json.load(sys.stdin)
-els=d.get('data',[])
-if els:
-  doms=els[0].get('domains',{}).get('data',[]) if isinstance(els[0].get('domains'),dict) else els[0].get('domains',[])
-  print(doms[0].get('id','') if doms else '')
+for sc in d.get('data',[]):
+  if sc.get('name','') == 'Storefront':
+    print(sc['id']); break
 else:
-  print('')" 2>/dev/null || true)
+  if d.get('data'): print(d['data'][0]['id'])
+" 2>/dev/null || true)
+
+DOMAIN_ID=$(curl -s "${SHOPWARE_URL}/api/sales-channel-domain?filter[salesChannelId]=${SC_ID}" \
+  -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  -H 'Accept: application/json' \
+  | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+els=d.get('data',[])
+print(els[0]['id'] if els else '')" 2>/dev/null || true)
 
 if [ -n "$SC_ID" ] && [ -n "$DOMAIN_ID" ]; then
   PATCH_RESP=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH \
@@ -122,12 +124,12 @@ if [ -n "$SC_ID" ] && [ -n "$DOMAIN_ID" ]; then
     -H 'Content-Type: application/json' \
     -d "{\"url\": \"${SHOPWARE_URL}\"}" || true)
   if [ "$PATCH_RESP" = "204" ]; then
-    echo "   Domain updated to $SHOPWARE_URL"
+    echo "   Domain updated to $SHOPWARE_URL (SC: $SC_ID)"
   else
-    echo "   WARNING: Domain patch returned HTTP $PATCH_RESP (continuing)"
+    echo "   WARNING: Domain patch returned HTTP $PATCH_RESP (SC: $SC_ID, domain: $DOMAIN_ID)"
   fi
 else
-  echo "   WARNING: Could not find sales channel/domain to patch (continuing)"
+  echo "   WARNING: Could not resolve SC_ID=$SC_ID or DOMAIN_ID=$DOMAIN_ID"
 fi
 
 # ── 5. Seed products ─────────────────────────────────────────────────────

@@ -42,13 +42,15 @@ export type { MagentoAdapterConfig } from './magento-types.js';
 export class MagentoAdapter implements PlatformAdapter {
   readonly name = 'magento';
   private readonly config: MagentoAdapterConfig;
+  private cachedCurrency = 'USD';
 
   constructor(config: MagentoAdapterConfig) {
     this.config = config;
   }
 
   async getProfile(): Promise<UCPProfile> {
-    await this.get<MagentoStoreConfig[]>('/rest/V1/store/storeConfigs');
+    const storeConfigs = await this.get<MagentoStoreConfig[]>('/rest/V1/store/storeConfigs');
+    this.cachedCurrency = storeConfigs[0]?.base_currency_code ?? 'USD';
 
     return {
       ucp: {
@@ -104,13 +106,15 @@ export class MagentoAdapter implements PlatformAdapter {
     const params = buildSearchCriteriaParams(query.q, limit, page);
     const result = await this.get<MagentoSearchResult>(`/rest/V1/products?${params.toString()}`);
 
-    return result.items.map((item) => mapMagentoProduct(item, this.config.storeUrl));
+    return result.items.map((item) =>
+      mapMagentoProduct(item, this.config.storeUrl, this.cachedCurrency),
+    );
   }
 
   async getProduct(id: string): Promise<Product> {
     try {
       const item = await this.get<MagentoProduct>(`/rest/V1/products/${encodeURIComponent(id)}`);
-      return mapMagentoProduct(item, this.config.storeUrl);
+      return mapMagentoProduct(item, this.config.storeUrl, this.cachedCurrency);
     } catch (err: unknown) {
       if (err instanceof AdapterError && err.statusCode === 404) {
         throw notFound('PRODUCT_NOT_FOUND', id);
@@ -121,7 +125,7 @@ export class MagentoAdapter implements PlatformAdapter {
 
   async createCart(): Promise<Cart> {
     const cartId = await this.post<string>('/rest/V1/guest-carts', {});
-    return { id: cartId, items: [], currency: 'USD' };
+    return { id: cartId, items: [], currency: this.cachedCurrency };
   }
 
   async addToCart(cartId: string, items: readonly LineItem[]): Promise<Cart> {
@@ -145,7 +149,7 @@ export class MagentoAdapter implements PlatformAdapter {
       `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/items`,
     );
 
-    return mapMagentoCartItems(cartId, allItems);
+    return mapMagentoCartItems(cartId, allItems, this.cachedCurrency);
   }
 
   /* -----------------------------------------------------------------------
@@ -327,7 +331,7 @@ export class MagentoAdapter implements PlatformAdapter {
       },
     );
 
-    return mapMagentoOrder(String(orderId), 0, 'USD');
+    return mapMagentoOrder(String(orderId), 0, this.cachedCurrency);
   }
 
   private async setPaymentMethod(cartId: string, method: string): Promise<void> {
