@@ -92,8 +92,50 @@ fi
 echo "   Access key: $ACCESS_KEY"
 echo "$ACCESS_KEY" > "$SCRIPT_DIR/.shopware-access-key"
 
-# ── 4. Seed products ─────────────────────────────────────────────────────
-echo "4. Seeding products..."
+# ── 4. Update sales channel domain to SHOPWARE_URL ───────────────────────
+# Shopware validates storefrontUrl in guest registration against sales channel domains.
+echo "4. Updating sales channel domain to $SHOPWARE_URL..."
+SC_ID=$(curl -s "${SHOPWARE_URL}/api/sales-channel" \
+  -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  -H 'Accept: application/json' \
+  | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+for sc in d.get('data',[]):
+  if sc.get('name','') == 'Storefront':
+    print(sc['id']); break
+else:
+  if d.get('data'): print(d['data'][0]['id'])
+" 2>/dev/null || true)
+
+DOMAIN_ID=$(curl -s -X POST "${SHOPWARE_URL}/api/search/sales-channel-domain" \
+  -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -d "{\"filter\":[{\"type\":\"equals\",\"field\":\"salesChannelId\",\"value\":\"${SC_ID}\"}],\"limit\":1}" \
+  | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+els=d.get('data',[])
+print(els[0]['id'] if els else '')" 2>/dev/null || true)
+
+if [ -n "$SC_ID" ] && [ -n "$DOMAIN_ID" ]; then
+  PATCH_RESP=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH \
+    "${SHOPWARE_URL}/api/sales-channel-domain/${DOMAIN_ID}" \
+    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+    -H 'Content-Type: application/json' \
+    -d "{\"url\": \"${SHOPWARE_URL}\"}" || true)
+  if [ "$PATCH_RESP" = "204" ]; then
+    echo "   Domain updated to $SHOPWARE_URL (SC: $SC_ID)"
+  else
+    echo "   WARNING: Domain patch returned HTTP $PATCH_RESP (SC: $SC_ID, domain: $DOMAIN_ID)"
+  fi
+else
+  echo "   WARNING: Could not resolve SC_ID=$SC_ID or DOMAIN_ID=$DOMAIN_ID"
+fi
+
+# ── 5. Seed products ─────────────────────────────────────────────────────
+echo "5. Seeding products..."
 bash "$SCRIPT_DIR/seed-products.sh"
 
 echo ""

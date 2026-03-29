@@ -106,6 +106,14 @@ export interface LineItem {
 export interface CheckoutContext {
   readonly shipping_address: PostalAddress;
   readonly billing_address?: PostalAddress | undefined;
+  readonly selected_shipping_method?: string | undefined;
+}
+
+export interface PlaceOrderContext {
+  readonly shipping_address?: PostalAddress | undefined;
+  readonly billing_address?: PostalAddress | undefined;
+  readonly buyer_email?: string | undefined;
+  readonly selected_shipping_method?: string | undefined;
 }
 
 export interface Total {

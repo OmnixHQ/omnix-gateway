@@ -97,9 +97,13 @@ function sumCalculatedTaxes(response: ShopwareCartResponse): number {
 }
 
 function computeShippingCents(response: ShopwareCartResponse): number {
-  const totalCents = grossPriceToCents(response.price.totalPrice);
-  const positionCents = grossPriceToCents(response.price.positionPrice);
-  return Math.max(0, totalCents - positionCents);
+  const deliveryPrice = response.deliveries?.[0]?.shippingCosts?.totalPrice;
+  if (deliveryPrice !== undefined) return grossPriceToCents(deliveryPrice);
+  // NOTE: fallback for carts without delivery data — approximate from totals diff
+  return Math.max(
+    0,
+    grossPriceToCents(response.price.totalPrice) - grossPriceToCents(response.price.positionPrice),
+  );
 }
 
 export function mapShopwareOrder(response: ShopwareOrderResponse, currency: string): PlatformOrder {

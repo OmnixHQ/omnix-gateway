@@ -30,7 +30,9 @@ export function buildUCPErrorBody(
   code: string,
   message: string,
   severity: MessageSeverity = 'recoverable',
+  sessionStatus: string = 'incomplete',
 ): {
+  readonly status: string;
   readonly messages: readonly {
     readonly type: 'error';
     readonly code: string;
@@ -43,6 +45,7 @@ export function buildUCPErrorBody(
   };
 } {
   return {
+    status: sessionStatus,
     messages: [{ type: 'error' as const, code, content: message, severity }],
     ucp: {
       version: UCP_VERSION,
@@ -103,16 +106,14 @@ export async function checkIdempotencyKey(
   if (record.hash !== currentHash) {
     return {
       cached: true,
-      reply: reply.status(409).send({
-        messages: [
-          {
-            type: 'error',
-            code: 'idempotency_conflict',
-            content: 'Idempotency key reused with different parameters',
-            severity: 'recoverable',
-          },
-        ],
-      }),
+      reply: reply
+        .status(409)
+        .send(
+          buildUCPErrorBody(
+            'idempotency_conflict',
+            'Idempotency key reused with different parameters',
+          ),
+        ),
     };
   }
 

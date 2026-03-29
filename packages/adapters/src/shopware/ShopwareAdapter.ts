@@ -5,6 +5,7 @@ import type {
   FulfillmentDestination,
   FulfillmentOption,
   LineItem,
+  PlaceOrderContext,
   PlatformOrder,
   PaymentHandler,
   PaymentToken,
@@ -231,7 +232,11 @@ export class ShopwareAdapter implements PlatformAdapter {
     };
   }
 
-  async setShippingMethod(cartId: string, shippingMethodId: string): Promise<void> {
+  async setShippingMethod(
+    cartId: string,
+    shippingMethodId: string,
+    _destination?: unknown,
+  ): Promise<void> {
     await this.requestWithToken(cartId, 'PATCH', '/store-api/context', { shippingMethodId });
   }
 
@@ -263,9 +268,14 @@ export class ShopwareAdapter implements PlatformAdapter {
    * Shopware Store API requires a logged-in customer to place orders.
    * Guest registration returns a NEW context token — cart items must be re-added to the new session.
    */
-  async placeOrder(cartId: string, payment: PaymentToken): Promise<PlatformOrder> {
-    const countryId = await this.resolveCountryId(cartId, 'US');
-    const customerToken = await this.registerGuestCustomer(cartId, countryId);
+  async placeOrder(
+    cartId: string,
+    payment: PaymentToken,
+    context?: PlaceOrderContext,
+  ): Promise<PlatformOrder> {
+    const countryIso = context?.shipping_address?.address_country ?? 'US';
+    const countryId = await this.resolveCountryId(cartId, countryIso);
+    const customerToken = await this.registerGuestCustomer(cartId, countryId, context);
 
     if (payment.provider) {
       try {
@@ -292,40 +302,48 @@ export class ShopwareAdapter implements PlatformAdapter {
     return mapShopwareOrder(response, this.cachedCurrency);
   }
 
-  private async registerGuestCustomer(cartId: string, countryId: string): Promise<string> {
+  private async registerGuestCustomer(
+    cartId: string,
+    countryId: string,
+    context?: PlaceOrderContext,
+  ): Promise<string> {
     const salutationId = await this.resolveDefaultSalutationId(cartId);
-    const uniqueEmail = `guest-${Date.now()}@ucp-gateway.test`;
-    const savedToken = this.contextToken;
-    this.contextToken = cartId;
+    const email = context?.buyer_email ?? `guest-${Date.now()}@ucp-gateway.test`;
+    const addr = context?.shipping_address;
+    const firstName = addr?.first_name ?? 'Guest';
+    const lastName = addr?.last_name ?? 'Checkout';
+    const street = addr?.street_address ?? 'N/A';
+    const city = addr?.address_locality ?? 'New York';
+    const zipcode = addr?.postal_code ?? '10001';
 
     try {
       const url = `${this.storeUrl}/store-api/account/register`;
       const response = await fetch(url, {
         method: 'POST',
-        headers: this.buildHeaders(),
+        headers: this.buildHeaders(cartId),
         body: JSON.stringify({
           guest: true,
-          email: uniqueEmail,
-          storefrontUrl: 'http://localhost',
+          email,
+          storefrontUrl: this.storeUrl,
           salutationId,
-          firstName: 'Guest',
-          lastName: 'Checkout',
+          firstName,
+          lastName,
           billingAddress: {
             salutationId,
-            firstName: 'Guest',
-            lastName: 'Checkout',
-            street: 'N/A',
-            city: 'New York',
-            zipcode: '10001',
+            firstName,
+            lastName,
+            street,
+            city,
+            zipcode,
             countryId,
           },
           shippingAddress: {
             salutationId,
-            firstName: 'Guest',
-            lastName: 'Checkout',
-            street: 'N/A',
-            city: 'New York',
-            zipcode: '10001',
+            firstName,
+            lastName,
+            street,
+            city,
+            zipcode,
             countryId,
           },
           acceptedDataProtection: true,
@@ -338,8 +356,6 @@ export class ShopwareAdapter implements PlatformAdapter {
       return cartId;
     } catch {
       return cartId;
-    } finally {
-      this.contextToken = savedToken;
     }
   }
 
@@ -361,14 +377,15 @@ export class ShopwareAdapter implements PlatformAdapter {
     );
   }
 
-  private buildHeaders(): Record<string, string> {
+  private buildHeaders(contextToken?: string): Record<string, string> {
     const headers: Record<string, string> = {
       'sw-access-key': this.accessKey,
       Accept: 'application/json',
       'Content-Type': 'application/json',
     };
-    if (this.contextToken !== undefined) {
-      headers['sw-context-token'] = this.contextToken;
+    const token = contextToken ?? this.contextToken;
+    if (token !== undefined) {
+      headers['sw-context-token'] = token;
     }
     return headers;
   }
@@ -407,31 +424,33 @@ export class ShopwareAdapter implements PlatformAdapter {
     path: string,
     body?: unknown,
   ): Promise<T> {
-    const savedToken = this.contextToken;
-    this.contextToken = contextToken;
-    try {
-      return await this.request<T>(method, path, body);
-    } finally {
-      this.contextToken = savedToken;
-    }
+    return this.request<T>(method, path, body, contextToken);
   }
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    contextToken?: string,
+  ): Promise<T> {
     const url = `${this.storeUrl}${path}`;
     const options: RequestInit = {
       method,
-      headers: this.buildHeaders(),
+      headers: this.buildHeaders(contextToken),
     };
     if (body !== undefined) {
       options.body = JSON.stringify(body);
     }
 
     const response = await fetch(url, options);
-    this.storeContextToken(response);
+    if (contextToken === undefined) {
+      this.storeContextToken(response);
+    }
 
     if (!response.ok) {
       if (response.status === 404) {
-        throw notFound('PRODUCT_NOT_FOUND', path);
+        const errorCode = inferResourceCode(path);
+        throw notFound(errorCode, path);
       }
       const text = await response.text();
       throw new AdapterError(
@@ -455,6 +474,15 @@ function buildAddToCartPayload(item: LineItem): {
     referencedId: item.product_id,
     quantity: item.quantity,
   };
+}
+
+function inferResourceCode(path: string): import('@ucp-gateway/core').AdapterErrorCode {
+  if (path.includes('/product')) return 'PRODUCT_NOT_FOUND';
+  if (path.includes('/checkout/cart')) return 'CART_NOT_FOUND';
+  if (path.includes('/checkout/order') || path.includes('/order')) return 'ORDER_NOT_FOUND';
+  if (path.includes('/country')) return 'COUNTRY_NOT_FOUND';
+  if (path.includes('/shipping-method')) return 'SHIPPING_METHOD_NOT_FOUND';
+  return 'NOT_FOUND';
 }
 
 function buildShippingAddressPayload(

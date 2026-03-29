@@ -446,6 +446,64 @@ T18_ECHO=$(echo "$T18_RESP_HEADERS" | grep -i "request-id" | grep -o "test-e2e-1
 assert_eq "Request-Id echoed in response" "test-e2e-123" "$T18_ECHO"
 echo ""
 
+# ── 19. Missing UCP-Agent → 401 ─────────────────────────────────────────
+echo "--- 19. Missing UCP-Agent returns 401 ---"
+T19_RESP=$(curl -s -w "\n%{http_code}" "$GATEWAY_URL/ucp/products?q=shoes")
+T19_CODE=$(echo "$T19_RESP" | tail -1)
+assert_eq "Missing UCP-Agent returns 401" "401" "$T19_CODE"
+echo ""
+
+# ── 20. Unknown domain → 404 ─────────────────────────────────────────────
+echo "--- 20. Unknown domain returns 404 ---"
+GATEWAY_PORT="${GATEWAY_URL##*:}"
+T20_RESP=$(curl -s -w "\n%{http_code}" -H "$AGENT_HEADER" -H "Host: unknown.example.com" \
+  "http://localhost:$GATEWAY_PORT/ucp/products?q=shoes")
+T20_CODE=$(echo "$T20_RESP" | tail -1)
+assert_eq "Unknown tenant domain returns 404" "404" "$T20_CODE"
+echo ""
+
+# ── 21. Error envelope has status + ucp ──────────────────────────────────
+echo "--- 21. Error response envelope shape ---"
+T21_RESP=$(curl -s "$GATEWAY_URL/checkout-sessions/00000000-0000-0000-0000-999999999999" -H "$AGENT_HEADER")
+T21_HAS_STATUS=$(echo "$T21_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if 'status' in d else 'no')" 2>/dev/null || echo "no")
+T21_HAS_UCP=$(echo "$T21_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if 'ucp' in d else 'no')" 2>/dev/null || echo "no")
+T21_STATUS=$(echo "$T21_RESP" | json_field ".get('status','')")
+assert_eq "Error response has 'status' field" "yes" "$T21_HAS_STATUS"
+assert_eq "Error response has 'ucp' field" "yes" "$T21_HAS_UCP"
+assert_eq "Error status=incomplete" "incomplete" "$T21_STATUS"
+echo ""
+
+# ── 22. Order response is minimal {id, permalink_url} ────────────────────
+echo "--- 22. Order response has only spec fields {id, permalink_url} ---"
+T22_KEYS=$(curl -s "$GATEWAY_URL/checkout-sessions/$SESSION_ID" -H "$AGENT_HEADER" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+order = d.get('order') or {}
+extra = set(order.keys()) - {'id','permalink_url'}
+print('none' if not extra else 'extra:'+','.join(sorted(extra)))" 2>/dev/null || echo "parse_error")
+assert_eq "Order has no extra fields beyond {id,permalink_url}" "none" "$T22_KEYS"
+echo ""
+
+# ── 23. Idempotency conflict returns 409 ─────────────────────────────────
+echo "--- 23. Idempotency conflict returns 409 ---"
+T23_TS=$(date +%s)
+T23_SID=$(curl -s -X POST "$GATEWAY_URL/checkout-sessions" \
+  -H "$AGENT_HEADER" -H "$CONTENT_TYPE" \
+  -d "{\"line_items\": [{\"item\": {\"id\": \"$PRODUCT_ID\"}, \"quantity\": 1}]}" \
+  | json_field ".get('id','')")
+T23_IDEM_KEY="idem-conflict-$T23_TS"
+curl -s -X PUT "$GATEWAY_URL/checkout-sessions/$T23_SID" \
+  -H "$AGENT_HEADER" -H "$CONTENT_TYPE" -H "Idempotency-Key: $T23_IDEM_KEY" \
+  -d "{\"id\": \"$T23_SID\", \"buyer\": {\"email\": \"first@example.com\", \"first_name\": \"First\", \"last_name\": \"User\"}}" \
+  > /dev/null
+T23_RESP=$(curl -s -w "\n%{http_code}" -X PUT "$GATEWAY_URL/checkout-sessions/$T23_SID" \
+  -H "$AGENT_HEADER" -H "$CONTENT_TYPE" -H "Idempotency-Key: $T23_IDEM_KEY" \
+  -d "{\"id\": \"$T23_SID\", \"buyer\": {\"email\": \"second@example.com\", \"first_name\": \"Second\", \"last_name\": \"User\"}}")
+T23_CODE=$(echo "$T23_RESP" | tail -1)
+assert_eq "Same idempotency key + different body returns 409" "409" "$T23_CODE"
+curl -s -X POST "$GATEWAY_URL/checkout-sessions/$T23_SID/cancel" -H "$AGENT_HEADER" > /dev/null 2>&1 || true
+echo ""
+
 # ── Summary ────────────────────────────────────────────────────────────────
 echo "========================================="
 echo "  Results: $PASS/$TESTS passed, $FAIL failed"

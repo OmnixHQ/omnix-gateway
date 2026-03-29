@@ -39,8 +39,28 @@ export function resolvePaymentInstrument(body: {
 }
 
 /**
- * Determine if a fulfillment state warrants marking the session as ready_for_complete.
+ * Determine if a session has all required data for completion.
+ * Checks: line items present, buyer info, fulfillment option selected.
  */
-export function shouldMarkReadyForComplete(fulfillment: Fulfillment): boolean {
-  return fulfillment.methods.some((m) => m.groups.some((g) => g.selected_option_id));
+export function shouldMarkReadyForComplete(
+  session: CheckoutSession,
+  fulfillment?: Fulfillment,
+): boolean {
+  const hasLineItems = session.line_items.length > 0;
+  const hasBuyerInfo = session.buyer !== null;
+  const ff = fulfillment ?? session.fulfillment;
+  const hasFulfillmentSelected =
+    ff?.methods.some((m) => m.groups.some((g) => g.selected_option_id)) ?? false;
+  return hasLineItems && hasBuyerInfo && hasFulfillmentSelected;
+}
+
+/**
+ * Determine the correct session status based on current data.
+ * Allows backward transitions from ready_for_complete to incomplete.
+ */
+export function computeSessionStatus(
+  session: CheckoutSession,
+  fulfillment?: Fulfillment,
+): 'incomplete' | 'ready_for_complete' {
+  return shouldMarkReadyForComplete(session, fulfillment) ? 'ready_for_complete' : 'incomplete';
 }

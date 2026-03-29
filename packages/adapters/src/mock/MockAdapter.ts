@@ -134,7 +134,11 @@ export class MockAdapter implements PlatformAdapter {
     ];
   }
 
-  async placeOrder(cartId: string, payment: PaymentToken): Promise<PlatformOrder> {
+  async placeOrder(
+    cartId: string,
+    payment: PaymentToken,
+    _context?: import('@ucp-gateway/core').PlaceOrderContext,
+  ): Promise<PlatformOrder> {
     if (!payment.token) {
       throw new Error('Payment token is required');
     }
@@ -217,7 +221,11 @@ export class MockAdapter implements PlatformAdapter {
     };
   }
 
-  async setShippingMethod(_cartId: string, _methodId: string): Promise<void> {
+  async setShippingMethod(
+    _cartId: string,
+    _methodId: string,
+    _destination?: unknown,
+  ): Promise<void> {
     return;
   }
 

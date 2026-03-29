@@ -81,10 +81,20 @@ export interface ShopwareCartLineItem {
   readonly price: ShopwareCalculatedPrice | null;
 }
 
+export interface ShopwareDeliveryShippingCosts {
+  readonly totalPrice: number;
+  readonly unitPrice: number;
+}
+
+export interface ShopwareDelivery {
+  readonly shippingCosts: ShopwareDeliveryShippingCosts;
+}
+
 export interface ShopwareCartResponse {
   readonly token: string;
   readonly lineItems: readonly ShopwareCartLineItem[];
   readonly price: ShopwareCartPrice;
+  readonly deliveries?: readonly ShopwareDelivery[] | undefined;
 }
 
 export interface ShopwareOrderResponse {

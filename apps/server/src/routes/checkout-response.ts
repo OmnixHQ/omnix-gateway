@@ -78,13 +78,8 @@ function buildRawResponse(
     shipping_address: session.shipping_address,
     billing_address: session.billing_address,
     order: session.order
-      ? {
-          id: session.order.id,
-          permalink_url: session.order.permalink_url,
-        }
+      ? { id: session.order.id, permalink_url: session.order.permalink_url }
       : null,
-    order_id: session.order?.id,
-    order_permalink_url: session.order?.permalink_url,
     continue_url: resolveContinueUrl(session, tenantSettings?.domain),
     messages: session.messages,
     expires_at: session.expires_at,

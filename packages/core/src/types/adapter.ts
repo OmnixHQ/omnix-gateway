@@ -4,6 +4,7 @@ import type {
   Fulfillment,
   FulfillmentDestination,
   LineItem,
+  PlaceOrderContext,
   PlatformOrder,
   PaymentHandler,
   PaymentToken,
@@ -26,10 +27,18 @@ export interface PlatformAdapter {
   createCart(): Promise<Cart>;
   addToCart(cartId: string, items: readonly LineItem[]): Promise<Cart>;
   calculateTotals(cartId: string, ctx: CheckoutContext): Promise<readonly Total[]>;
-  placeOrder(cartId: string, payment: PaymentToken): Promise<PlatformOrder>;
+  placeOrder(
+    cartId: string,
+    payment: PaymentToken,
+    context?: PlaceOrderContext,
+  ): Promise<PlatformOrder>;
   getOrder(id: string): Promise<PlatformOrder>;
   getFulfillmentOptions(cartId: string, destination: FulfillmentDestination): Promise<Fulfillment>;
-  setShippingMethod(cartId: string, methodId: string): Promise<void>;
+  setShippingMethod(
+    cartId: string,
+    methodId: string,
+    destination?: FulfillmentDestination,
+  ): Promise<void>;
   getSupportedPaymentMethods(): Promise<readonly PaymentHandler[]>;
   applyCoupon(
     cartId: string,

@@ -17,7 +17,11 @@ import type {
 } from './magento-types.js';
 import { dollarsToCents } from '../shared/price.js';
 
-export function mapMagentoProduct(item: MagentoProduct, storeUrl: string): Product {
+export function mapMagentoProduct(
+  item: MagentoProduct,
+  storeUrl: string,
+  currency = 'USD',
+): Product {
   const description =
     getCustomAttribute(item, 'description') ?? getCustomAttribute(item, 'short_description');
   const stockItem = item.extension_attributes?.stock_item;
@@ -28,7 +32,7 @@ export function mapMagentoProduct(item: MagentoProduct, storeUrl: string): Produ
     title: item.name,
     description: description ?? null,
     price_cents: dollarsToCents(item.price),
-    currency: 'USD',
+    currency,
     in_stock: stockItem?.is_in_stock ?? true,
     stock_quantity: stockItem?.qty ?? 0,
     images,
@@ -46,7 +50,11 @@ function extractProductImages(item: MagentoProduct, storeUrl: string): readonly 
     .map((e) => `${storeUrl}/pub/media/catalog/product${e.file}`);
 }
 
-export function mapMagentoCartItems(cartId: string, items: readonly MagentoCartItem[]): Cart {
+export function mapMagentoCartItems(
+  cartId: string,
+  items: readonly MagentoCartItem[],
+  currency = 'USD',
+): Cart {
   const lineItems: readonly LineItem[] = items.map((item) => ({
     product_id: item.sku,
     title: item.name,
@@ -57,7 +65,7 @@ export function mapMagentoCartItems(cartId: string, items: readonly MagentoCartI
   return {
     id: cartId,
     items: lineItems,
-    currency: 'USD',
+    currency,
   };
 }
 
@@ -85,7 +93,7 @@ export function mapMagentoOrder(orderId: string, total: number, currency: string
 }
 
 export function buildMagentoShippingAddress(address: PostalAddress): Record<string, unknown> {
-  return {
+  const result: Record<string, unknown> = {
     firstname: address.first_name,
     lastname: address.last_name,
     street: [address.street_address, address.extended_address].filter(Boolean),
@@ -93,8 +101,9 @@ export function buildMagentoShippingAddress(address: PostalAddress): Record<stri
     postcode: address.postal_code,
     region_code: address.address_region ?? '',
     country_id: address.address_country,
-    telephone: address.phone_number ?? '0000000000',
   };
+  if (address.phone_number) result['telephone'] = address.phone_number;
+  return result;
 }
 
 export function mapShippingMethodToFulfillmentOption(
@@ -109,6 +118,7 @@ export function mapShippingMethodToFulfillmentOption(
 
 export function mapShippingMethodsToFulfillment(
   methods: readonly MagentoShippingMethod[],
+  lineItemIds: readonly string[] = [],
 ): Fulfillment {
   const availableMethods = methods.filter((m) => m.available);
   const options = availableMethods.map(mapShippingMethodToFulfillmentOption);
@@ -118,11 +128,11 @@ export function mapShippingMethodsToFulfillment(
       {
         id: 'shipping',
         type: 'shipping',
-        line_item_ids: [],
+        line_item_ids: [...lineItemIds],
         groups: [
           {
             id: 'default',
-            line_item_ids: [],
+            line_item_ids: [...lineItemIds],
             options,
           },
         ],
