@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { PlatformAdapter, PaymentHandler } from '@ucp-gateway/core';
 import { AdapterError } from '@ucp-gateway/core';
@@ -172,6 +173,7 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
           sessionStore: app.container.resolve('sessionStore'),
           tenantDomain: request.tenant.domain,
           tenant: request.tenant,
+          eventBus: app.container.resolve('eventBus'),
         },
         request.params.id,
         parsed.data,
@@ -232,6 +234,16 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(200).send(toPublicCheckoutResponse(session, options));
 
       const canceled = await sessionStore.update(request.params.id, { status: 'canceled' });
+
+      const eventBus = app.container.resolve('eventBus');
+      eventBus.emit({
+        id: randomUUID(),
+        type: 'order.canceled',
+        tenant_id: request.tenant.id,
+        occurred_at: new Date().toISOString(),
+        payload: { session_id: request.params.id },
+      });
+
       const responseBody = toPublicCheckoutResponse(canceled ?? session, options);
 
       if (idempotencyKey) {

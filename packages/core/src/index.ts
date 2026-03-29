@@ -73,6 +73,9 @@ export {
   type SigningKeyPair,
 } from './signing/index.js';
 
+export { EventBus } from './events/index.js';
+export type { WebhookEvent, WebhookEventType } from './events/index.js';
+
 export { SessionStore } from './session/SessionStore.js';
 export type {
   CheckoutSession,

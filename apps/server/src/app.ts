@@ -11,6 +11,7 @@ import { healthRoutes } from './routes/health.js';
 import { discoveryRoutes } from './routes/discovery.js';
 import { productRoutes } from './routes/products.js';
 import { checkoutRoutes } from './routes/checkout.js';
+import { createWebhookWorker, createWebhookBridge } from './webhooks/index.js';
 
 export interface BuildAppOptions {
   readonly container: AwilixContainer<Cradle>;
@@ -34,6 +35,24 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const signingService = container.resolve('signingService');
   await signingService.initialize();
   app.decorate('signingService', signingService);
+
+  const eventBus = container.resolve('eventBus');
+  const webhookQueue = container.resolve('webhookQueue');
+  const tenantRepository = container.resolve('tenantRepository');
+
+  createWebhookBridge(eventBus, webhookQueue, tenantRepository, app.log);
+
+  const redisConnection = {
+    host: new URL(env.REDIS_URL).hostname || 'localhost',
+    port: Number(new URL(env.REDIS_URL).port) || 6379,
+  };
+  const webhookWorker = createWebhookWorker(redisConnection, signingService, app.log);
+
+  app.addHook('onClose', async () => {
+    await webhookWorker.close();
+    await webhookQueue.close();
+    eventBus.removeAllListeners();
+  });
 
   await app.register(sensible);
   await app.register(errorHandlerPlugin);

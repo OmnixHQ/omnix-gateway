@@ -1,5 +1,6 @@
 import { createContainer, asValue, asClass, InjectionMode, type AwilixContainer } from 'awilix';
 import Redis, { type Redis as RedisType } from 'ioredis';
+import type { Queue } from 'bullmq';
 import type { Env } from '../config/env.js';
 import {
   createDb,
@@ -7,9 +8,11 @@ import {
   AdapterRegistry,
   SessionStore,
   SigningService,
+  EventBus,
   type Database,
 } from '@ucp-gateway/core';
 import { MockAdapter } from '@ucp-gateway/adapters';
+import { createWebhookQueue, type WebhookJobData } from '../webhooks/index.js';
 
 export interface Cradle {
   env: Env;
@@ -19,6 +22,8 @@ export interface Cradle {
   adapterRegistry: AdapterRegistry;
   sessionStore: SessionStore;
   signingService: SigningService;
+  eventBus: EventBus;
+  webhookQueue: Queue<WebhookJobData>;
 }
 
 export function createAppContainer(env: Env): AwilixContainer<Cradle> {
@@ -39,6 +44,13 @@ export function createAppContainer(env: Env): AwilixContainer<Cradle> {
     keyPrefix: 'ucp_gw',
   });
 
+  const eventBus = new EventBus();
+
+  const webhookQueue = createWebhookQueue({
+    host: new URL(env.REDIS_URL).hostname || 'localhost',
+    port: Number(new URL(env.REDIS_URL).port) || 6379,
+  });
+
   container.register({
     env: asValue(env),
     db: asValue(db),
@@ -49,6 +61,8 @@ export function createAppContainer(env: Env): AwilixContainer<Cradle> {
     adapterRegistry: asValue(adapterRegistry),
     sessionStore: asValue(sessionStore),
     signingService: asValue(signingService),
+    eventBus: asValue(eventBus),
+    webhookQueue: asValue(webhookQueue),
   });
 
   return container;

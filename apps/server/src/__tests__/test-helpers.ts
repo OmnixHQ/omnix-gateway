@@ -8,14 +8,17 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import sensible from '@fastify/sensible';
 import { createContainer, asValue, asClass, InjectionMode, type AwilixContainer } from 'awilix';
 import type { Redis as RedisType } from 'ioredis';
+import type { Queue } from 'bullmq';
 import {
   AdapterRegistry,
   SessionStore,
   SigningService,
+  EventBus,
   TenantRepository,
   createDb,
 } from '@ucp-gateway/core';
 import { MockAdapter } from '@ucp-gateway/adapters';
+import type { WebhookJobData } from '../webhooks/index.js';
 import type { Cradle } from '../container/index.js';
 import type { Env } from '../config/env.js';
 import { errorHandlerPlugin } from '../middleware/error-handler.js';
@@ -77,6 +80,13 @@ export async function buildTestApp(): Promise<{
   const signingService = new SigningService({ keyPrefix: 'test_gw' });
   await signingService.initialize();
 
+  const eventBus = new EventBus();
+
+  const mockWebhookQueue = {
+    add: async () => undefined,
+    close: async () => undefined,
+  } as unknown as Queue<WebhookJobData>;
+
   container.register({
     env: asValue(TEST_ENV),
     db: asValue(db),
@@ -85,6 +95,8 @@ export async function buildTestApp(): Promise<{
     adapterRegistry: asValue(adapterRegistry),
     sessionStore: asValue(sessionStore as unknown as SessionStore),
     signingService: asValue(signingService),
+    eventBus: asValue(eventBus),
+    webhookQueue: asValue(mockWebhookQueue),
   });
 
   const app = Fastify({ logger: false });

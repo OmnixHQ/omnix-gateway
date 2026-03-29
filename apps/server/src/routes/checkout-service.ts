@@ -5,8 +5,10 @@ import type {
   UCPOrder,
   OrderFulfillment,
   OrderFulfillmentExpectation,
+  EventBus,
 } from '@ucp-gateway/core';
 import { EscalationRequiredError } from '@ucp-gateway/core';
+import { randomUUID } from 'node:crypto';
 import type { Redis as RedisType } from 'ioredis';
 import type { z } from 'zod';
 import {
@@ -376,6 +378,7 @@ export async function handleCompleteSession(
     readonly sessionStore: SessionStore;
     readonly tenantDomain: string;
     readonly tenant: { readonly id: string };
+    readonly eventBus?: EventBus | undefined;
   },
   sessionId: string,
   body: CompleteSessionBody,
@@ -465,6 +468,14 @@ export async function handleCompleteSession(
     const completed = await deps.sessionStore.update(sessionId, {
       status: 'completed',
       order: ucpOrder,
+    });
+
+    deps.eventBus?.emit({
+      id: randomUUID(),
+      type: 'order.created',
+      tenant_id: deps.tenant.id,
+      occurred_at: new Date().toISOString(),
+      payload: ucpOrder as unknown as Readonly<Record<string, unknown>>,
     });
 
     return succeed(200, completed ?? session);

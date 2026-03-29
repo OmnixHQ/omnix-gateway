@@ -66,9 +66,9 @@ npm run test:conformance
 cat docs/UCP_GAP_ANALYSIS.md | grep MISSING
 ```
 
-### Current Score (2026-03-24)
+### Current Score (2026-03-29)
 
-- MUST/SHOULD: 57/79 (72%)
+- MUST/SHOULD: 60/79 (76%)
 - Automated checks: 29/34 pass
-- 3 MUST gaps: signing_keys, webhook delivery, webhook JWT signing
+- 0 MUST gaps remaining (signing_keys, webhook delivery, webhook JWT signing all implemented)
 - Spec version: 2026-01-23
