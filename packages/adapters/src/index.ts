@@ -1,8 +1,9 @@
 /**
  * @ucp-gateway/adapters
  *
- * Platform-specific adapter implementations.
- * Each adapter implements PlatformAdapter from @ucp-gateway/core.
+ * Free adapter implementations shipped with the public UCP Gateway.
+ * Pro adapters (Magento, Shopware, Shopify) are available as separate
+ * licensed packages from @omnixhq — see getomnix.dev
  */
 
 export { MockAdapter } from './mock/MockAdapter.js';
@@ -16,7 +17,3 @@ export {
   toFulfillmentDestination,
 } from './mock/mock-data.js';
 export type { MockCustomer, MockAddress, MockDiscount } from './mock/mock-data.js';
-export { MagentoAdapter } from './magento/MagentoAdapter.js';
-export type { MagentoAdapterConfig } from './magento/MagentoAdapter.js';
-export { ShopwareAdapter } from './shopware/ShopwareAdapter.js';
-export type { ShopwareConfig } from './shopware/ShopwareAdapter.js';

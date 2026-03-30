@@ -35,6 +35,18 @@
     "postgres": "^3.4.0",
     "zod": "^3.23.0"
   },
+  "peerDependencies": {
+    "@omnixhq/adapter-magento": ">=1.0.0",
+    "@omnixhq/adapter-shopware": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@omnixhq/adapter-magento": {
+      "optional": true
+    },
+    "@omnixhq/adapter-shopware": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^1.6.1",

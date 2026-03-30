@@ -55,7 +55,7 @@ export const tenantResolutionPlugin = fp(async function tenantResolution(
     }
 
     request.tenant = tenant;
-    request.adapter = createAdapterForTenant(tenant.platform, tenant.adapterConfig);
+    request.adapter = await createAdapterForTenant(tenant.platform, tenant.adapterConfig);
   });
 });
 
