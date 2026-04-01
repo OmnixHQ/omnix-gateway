@@ -23,12 +23,16 @@
 
 ## Features
 
-- **UCP spec compliant** — `dev.ucp.shopping.checkout` v2026-01-23 with 74 automated checks
+- **UCP spec compliant** — 150/150 SDK schemas covered (`@omnixhq/ucp-js-sdk` v1.1.0-draft.3.1)
 - **3 built-in adapters** — Magento 2.x (REST), Shopware 6.x (Store API), MockAdapter
 - **Full checkout flow** — discovery, search, create/update/complete/cancel sessions
+- **Catalog & cart** — product search with categories/filters, cart CRUD, SDK-shaped responses
+- **Order lifecycle** — line items, fulfillment events, adjustments, fulfilled tracking
 - **Multi-tenant** — Host-based routing with Redis-cached tenant resolution
-- **Payment instruments** — spec-compliant `instruments[]` model
-- **Escalation flow** — `requires_escalation` + `continue_url` for 3DS/CAPTCHA
+- **Payment instruments** — 4 handler types (card, wallet, redirect, offline) with instruments in responses
+- **Fulfillment** — destination-aware shipping (US/intl), free thresholds, pickup, `line_item_ids`
+- **Escalation flow** — `requires_escalation` + `continue_url` + embedded checkout config
+- **Extensions** — buyer consent, signals, identity linking, AP2 mandates, version negotiation
 - **Structured errors** — UCP `messages[]` with type, code, content, severity
 
 ## Quick Start
@@ -49,40 +53,81 @@ curl -H "UCP-Agent: my-agent/1.0" 'http://localhost:3000/ucp/products?q=shoes' |
 
 ## API Endpoints
 
-| Method | Path                               | Description                    |
-| ------ | ---------------------------------- | ------------------------------ |
-| `GET`  | `/.well-known/ucp`                 | Business profile discovery     |
-| `POST` | `/checkout-sessions`               | Create checkout                |
-| `GET`  | `/checkout-sessions/{id}`          | Get checkout                   |
-| `PUT`  | `/checkout-sessions/{id}`          | Update checkout (full replace) |
-| `POST` | `/checkout-sessions/{id}/complete` | Place order                    |
-| `POST` | `/checkout-sessions/{id}/cancel`   | Cancel                         |
-| `GET`  | `/ucp/products?q=...`              | Product search                 |
-| `GET`  | `/ucp/products/{id}`               | Product detail                 |
+### Discovery
+
+| Method | Path               | Description                                                |
+| ------ | ------------------ | ---------------------------------------------------------- |
+| `GET`  | `/.well-known/ucp` | UCP profile (capabilities, payment handlers, signing keys) |
+
+### Catalog
+
+| Method | Path                        | Description                                   |
+| ------ | --------------------------- | --------------------------------------------- |
+| `GET`  | `/ucp/catalog/search?q=...` | Catalog search with UCP envelope + pagination |
+| `GET`  | `/ucp/catalog/lookup/{id}`  | Single product lookup in UCP envelope         |
+| `GET`  | `/ucp/products?q=...`       | Product search (legacy)                       |
+| `GET`  | `/ucp/products/{id}`        | Product detail (legacy)                       |
+
+### Cart
+
+| Method   | Path                               | Description                                 |
+| -------- | ---------------------------------- | ------------------------------------------- |
+| `POST`   | `/ucp/cart`                        | Create cart with line items, buyer, context |
+| `GET`    | `/ucp/cart/{id}`                   | Get cart                                    |
+| `PUT`    | `/ucp/cart/{id}`                   | Update cart items                           |
+| `DELETE` | `/ucp/cart/{cartId}/items/{index}` | Remove item from cart                       |
+
+### Checkout
+
+| Method | Path                               | Description                                                       |
+| ------ | ---------------------------------- | ----------------------------------------------------------------- |
+| `POST` | `/checkout-sessions`               | Create checkout session                                           |
+| `GET`  | `/checkout-sessions/{id}`          | Get checkout session                                              |
+| `PUT`  | `/checkout-sessions/{id}`          | Update checkout (buyer, fulfillment, discounts, consent, signals) |
+| `POST` | `/checkout-sessions/{id}/complete` | Place order (payment instruments or AP2 mandate)                  |
+| `POST` | `/checkout-sessions/{id}/cancel`   | Cancel checkout                                                   |
+
+### Orders
+
+| Method | Path           | Description                                         |
+| ------ | -------------- | --------------------------------------------------- |
+| `GET`  | `/orders/{id}` | Get order with line items, fulfillment, adjustments |
+| `PUT`  | `/orders/{id}` | Update order (fulfillment events, adjustments)      |
+
+### Identity Linking
+
+| Method   | Path                              | Description                     |
+| -------- | --------------------------------- | ------------------------------- |
+| `GET`    | `/ucp/identity/config`            | Get identity linking mechanisms |
+| `POST`   | `/ucp/identity/link`              | Create identity link            |
+| `GET`    | `/ucp/identity/link/{externalId}` | Look up linked account          |
+| `DELETE` | `/ucp/identity/link/{id}`         | Remove identity link            |
 
 ## Adapters
 
-| Adapter          | Catalog     | Cart        | Checkout                |
-| ---------------- | ----------- | ----------- | ----------------------- |
-| **MockAdapter**  | Search, get | Create, add | Totals, order           |
-| **Magento 2.x**  | REST API    | Guest cart  | Shipping, totals, order |
-| **Shopware 6.x** | Store API   | Store API   | Context, totals, order  |
-| Shopify          | Planned     | —           | —                       |
+| Adapter          | Catalog                          | Cart                     | Checkout                                        | Order Lifecycle     |
+| ---------------- | -------------------------------- | ------------------------ | ----------------------------------------------- | ------------------- |
+| **MockAdapter**  | Search, get, categories, ratings | Create, get, add, remove | Totals, fulfillment (US/intl/pickup), discounts | Events, adjustments |
+| **Magento 2.x**  | REST API                         | Guest cart, get          | Shipping, totals, order                         | Read                |
+| **Shopware 6.x** | Store API                        | Store API, get           | Context, totals, order                          | Read                |
+| Shopify          | Planned                          | —                        | —                                               | —                   |
 
 ## UCP Spec Compliance
 
 ```bash
-npm run validate:ucp   # 74 automated checks
+npm run validate:ucp   # Automated spec checks
 ```
+
+SDK: `@omnixhq/ucp-js-sdk` v1.1.0-draft.3.1 — 150/150 schemas covered.
 
 See [UCP_SPEC.md](UCP_SPEC.md) for specification links.
 
 ## Development
 
 ```bash
-npm run build          # Build all packages
-npm test               # 20 unit + integration tests
-npm run validate:ucp   # 74 UCP spec compliance checks
+npm run build          # Build all packages (core → adapters → server)
+npm test               # 222 unit + integration tests
+npm run validate:ucp   # UCP spec compliance checks
 npm run lint           # ESLint
 npm run typecheck      # TypeScript
 ```
