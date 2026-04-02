@@ -297,10 +297,6 @@ export class MockAdapter implements PlatformAdapter {
 
     let updatedOrder = { ...order };
 
-    if (update.status) {
-      updatedOrder = { ...updatedOrder, status: update.status };
-    }
-
     if (update.fulfillment_event) {
       const eventId = `evt-${String(this.nextEventId++).padStart(4, '0')}`;
       const newEvent: OrderFulfillmentEvent = {

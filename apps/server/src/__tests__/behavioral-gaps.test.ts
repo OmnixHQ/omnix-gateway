@@ -288,7 +288,6 @@ describe('Behavioral gap coverage', () => {
         url: `/orders/${orderId}`,
         headers: JSON_HEADERS,
         payload: {
-          status: 'shipped',
           fulfillment_event: {
             type: 'shipped',
             line_items: [{ id: 'li-0', quantity: 2 }],
@@ -299,8 +298,6 @@ describe('Behavioral gap coverage', () => {
       });
       expect(updateRes.statusCode).toBe(200);
       const updatedOrder = JSON.parse(updateRes.body) as Record<string, unknown>;
-
-      expect(updatedOrder['status']).toBe('shipped');
 
       const fulfillment = updatedOrder['fulfillment'] as Record<string, unknown>;
       const events = fulfillment['events'] as Record<string, unknown>[];

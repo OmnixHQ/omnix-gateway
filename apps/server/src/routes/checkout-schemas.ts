@@ -159,7 +159,6 @@ const orderAdjustmentSchema = z.object({
 });
 
 export const updateOrderSchema = z.object({
-  status: z.enum(['pending', 'processing', 'shipped', 'delivered', 'canceled']).optional(),
   fulfillment_event: fulfillmentEventSchema.optional(),
   adjustment: orderAdjustmentSchema.optional(),
 });

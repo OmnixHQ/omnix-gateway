@@ -339,7 +339,6 @@ export interface OrderAdjustmentInput {
 }
 
 export interface OrderUpdateInput {
-  readonly status?: PlatformOrderStatus | undefined;
   readonly fulfillment_event?: OrderFulfillmentEventInput | undefined;
   readonly adjustment?: OrderAdjustmentInput | undefined;
 }
