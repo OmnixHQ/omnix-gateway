@@ -42,8 +42,8 @@ describe('Integration: MockAdapter endpoints', () => {
       expect(ucp['version']).toBe('2026-01-23');
       expect(ucp).toHaveProperty('services');
       expect(ucp).toHaveProperty('capabilities');
-      expect(Array.isArray(ucp['capabilities'])).toBe(true);
-      expect(body).toHaveProperty('payment');
+      expect(typeof ucp['capabilities']).toBe('object');
+      expect(ucp).toHaveProperty('payment_handlers');
       expect(body).toHaveProperty('signing_keys');
 
       const signingKeys = body['signing_keys'] as Record<string, unknown>[];
@@ -198,8 +198,8 @@ describe('Integration: MockAdapter endpoints', () => {
       const body = JSON.parse(res.body) as Record<string, unknown>;
       expect(body).toHaveProperty('id', 'prod-001');
       expect(body).toHaveProperty('title');
-      expect(body).toHaveProperty('price_cents');
-      expect(body).toHaveProperty('in_stock');
+      expect(body).toHaveProperty('price_range');
+      expect(body).toHaveProperty('description');
       expect(body).toHaveProperty('variants');
     });
 

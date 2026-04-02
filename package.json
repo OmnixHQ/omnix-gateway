@@ -21,8 +21,7 @@
     "validate:ucp": "node --experimental-transform-types scripts/validate-ucp-compliance.ts",
     "test:e2e:magento": "bash tests/e2e-magento/run-e2e-checkout.sh",
     "test:e2e:magento:vitest": "vitest run --config tests/e2e-magento/vitest.config.ts --dir tests/e2e-magento",
-    "test:e2e:magento:setup": "bash tests/e2e-magento/setup-magento.sh && bash tests/e2e-magento/seed-tenant.sh",
-    "postinstall": "npx patch-package"
+    "test:e2e:magento:setup": "bash tests/e2e-magento/setup-magento.sh && bash tests/e2e-magento/seed-tenant.sh"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.0.0",

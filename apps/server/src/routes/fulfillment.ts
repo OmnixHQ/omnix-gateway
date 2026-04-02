@@ -16,6 +16,11 @@ import type {
   Total,
 } from '@ucp-gateway/core';
 
+function parseFulfillmentType(raw: string | undefined): 'shipping' | 'pickup' {
+  if (raw === 'pickup') return 'pickup';
+  return 'shipping';
+}
+
 function generateAddressId(dest: FulfillmentDestination): string {
   const key = JSON.stringify({
     street_address: dest.street_address ?? '',
@@ -246,7 +251,7 @@ export async function buildFulfillmentForCreate(
 
     builtMethods.push({
       id: `method_${idx}`,
-      type: (m['type'] as string) ?? 'shipping',
+      type: parseFulfillmentType(m['type'] as string | undefined),
       line_item_ids: lineItemIds,
       destinations: resolvedDests ?? undefined,
       selected_destination_id: selectedDestId,
@@ -259,7 +264,7 @@ export async function buildFulfillmentForCreate(
 
 function resolveDestinationsForUpdate(
   clientDests: readonly FulfillmentDestination[] | undefined,
-  methodType: string,
+  methodType: 'shipping' | 'pickup',
   buyerEmail: string | undefined,
   existingDestinations: readonly FulfillmentDestination[] | undefined,
 ): readonly FulfillmentDestination[] | undefined {
@@ -357,7 +362,7 @@ export async function buildFulfillmentForUpdate(
     const m = methods[idx]!;
     const existing = existingMethods[idx];
     const methodId = (m['id'] as string) ?? existing?.id ?? `method_${idx}`;
-    const methodType = (m['type'] as string) ?? existing?.type ?? 'shipping';
+    const methodType = parseFulfillmentType((m['type'] as string | undefined) ?? existing?.type);
 
     const clientDests =
       (m['destinations'] as readonly FulfillmentDestination[] | undefined) ??

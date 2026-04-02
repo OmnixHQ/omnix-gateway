@@ -4,19 +4,12 @@
 
 ```
 tests/
-├── e2e-magento/
-│   ├── checkout.test.ts          # 20 vitest scenarios (expanded)
-│   ├── run-e2e-checkout.sh       # 26 bash assertions (CI pipeline)
-│   ├── setup-magento.sh          # Install + configure Magento
-│   ├── seed-products.sh          # Create test products via REST API
-│   ├── seed-tenant.sh            # Insert tenant row in Postgres
-│   └── vitest.config.ts          # Scoped to e2e-magento/ only
-├── e2e-shopware/
-│   ├── run-e2e-checkout.sh       # 26 bash assertions (CI pipeline)
-│   ├── setup-shopware.sh         # Configure Shopware access key
-│   └── seed-tenant.sh            # Insert tenant row in Postgres
 └── conformance/                  # UCP spec conformance tests (Python)
 ```
+
+> **Note:** Magento and Shopware E2E tests have moved to the private
+> `@omnixhq/adapter-magento` and `@omnixhq/adapter-shopware` repos
+> as part of the paid adapter split (PR #50).
 
 Two test runners exist per platform:
 

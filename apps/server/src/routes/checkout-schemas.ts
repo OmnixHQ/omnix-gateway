@@ -1,18 +1,18 @@
 /**
  * Zod request-validation schemas for checkout endpoints.
  *
- * Derived from the official @ucp-js/sdk primitives (BuyerClassSchema,
- * BillingAddressClassSchema, PaymentCredentialSchema) but kept lenient
+ * Derived from the official @omnixhq/ucp-js-sdk primitives (BuyerSchema,
+ * PostalAddressSchema, PaymentCredentialSchema) but kept lenient
  * (most fields optional) so that existing callers and tests continue to work.
  *
- * Response validation uses the full ExtendedCheckoutResponseSchema — see
+ * Response validation uses the full CheckoutResponseSchema — see
  * checkout-response.ts.
  */
 
 import { z } from 'zod';
-import { BillingAddressClassSchema, BuyerClassSchema, PaymentCredentialSchema } from '@ucp-js/sdk';
+import { PostalAddressSchema, BuyerSchema, PaymentCredentialSchema } from '@omnixhq/ucp-js-sdk';
 
-const postalAddressSchema = BillingAddressClassSchema;
+const postalAddressSchema = PostalAddressSchema;
 
 const lineItemSchema = z.object({
   item: z.object({ id: z.string().min(1) }),
@@ -86,7 +86,7 @@ const discountsSchema = z
 export const createSessionSchema = z.object({
   line_items: z.array(lineItemSchema),
   currency: z.string().min(1).default('USD'),
-  buyer: BuyerClassSchema.extend({
+  buyer: BuyerSchema.extend({
     shipping_address: postalAddressSchema.optional(),
     billing_address: postalAddressSchema.optional(),
   }).optional(),
@@ -95,8 +95,15 @@ export const createSessionSchema = z.object({
       address_country: z.string().optional(),
       address_region: z.string().optional(),
       postal_code: z.string().optional(),
+      intent: z.string().optional(),
+      language: z.string().optional(),
+      currency: z.string().optional(),
+      eligibility: z.array(z.string()).optional(),
     })
+    .passthrough()
     .optional(),
+  signals: z.record(z.unknown()).optional(),
+  consent: z.record(z.boolean()).optional(),
   payment: paymentSchema.default({}),
   fulfillment: fulfillmentSchema,
   discounts: discountsSchema,
@@ -106,7 +113,7 @@ export const updateSessionSchema = z.object({
   id: z.string().min(1),
   line_items: z.array(lineItemSchema).optional(),
   currency: z.string().min(1).optional(),
-  buyer: BuyerClassSchema.extend({
+  buyer: BuyerSchema.extend({
     shipping_address: postalAddressSchema.optional(),
     billing_address: postalAddressSchema.optional(),
   }).optional(),
@@ -115,11 +122,50 @@ export const updateSessionSchema = z.object({
       address_country: z.string().optional(),
       address_region: z.string().optional(),
       postal_code: z.string().optional(),
+      intent: z.string().optional(),
+      language: z.string().optional(),
+      currency: z.string().optional(),
+      eligibility: z.array(z.string()).optional(),
     })
+    .passthrough()
     .optional(),
+  signals: z.record(z.unknown()).optional(),
+  consent: z.record(z.boolean()).optional(),
   payment: paymentSchema,
   fulfillment: fulfillmentSchema,
   discounts: discountsSchema,
+});
+
+const fulfillmentEventLineItemSchema = z.object({
+  id: z.string().min(1),
+  quantity: z.number().int().min(1),
+});
+
+const adjustmentLineItemSchema = z.object({
+  id: z.string().min(1),
+  quantity: z.number().int(),
+});
+
+const fulfillmentEventSchema = z.object({
+  type: z.string().min(1),
+  line_items: z.array(fulfillmentEventLineItemSchema).default([]),
+  tracking_number: z.string().optional(),
+  tracking_url: z.string().optional(),
+  carrier: z.string().optional(),
+  description: z.string().optional(),
+});
+
+const orderAdjustmentSchema = z.object({
+  type: z.string().min(1),
+  status: z.enum(['pending', 'completed', 'failed']),
+  line_items: z.array(adjustmentLineItemSchema).optional(),
+  amount: z.number().int().optional(),
+  description: z.string().optional(),
+});
+
+export const updateOrderSchema = z.object({
+  fulfillment_event: fulfillmentEventSchema.optional(),
+  adjustment: orderAdjustmentSchema.optional(),
 });
 
 export const completeSessionSchema = z
@@ -131,7 +177,9 @@ export const completeSessionSchema = z
       .optional(),
     payment_data: instrumentSchema.optional(),
     risk_signals: z.record(z.string()).optional(),
+    ap2_mandate: z.string().optional(),
+    merchant_authorization: z.string().optional(),
   })
-  .refine((data) => data.payment?.instruments?.length || data.payment_data, {
-    message: 'Either payment.instruments or payment_data must be provided',
+  .refine((data) => data.payment?.instruments?.length || data.payment_data || data.ap2_mandate, {
+    message: 'Either payment.instruments, payment_data, or ap2_mandate must be provided',
   });

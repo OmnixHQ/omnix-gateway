@@ -62,6 +62,18 @@ export const FREE_SHIPPING_ITEM_IDS: readonly string[] = ['bouquet_roses'];
 /** Order subtotal threshold (in cents) above which standard shipping is free. */
 export const FREE_SHIPPING_THRESHOLD_CENTS = 10000;
 
+export const MOCK_RETAIL_LOCATION = {
+  id: 'store-downtown',
+  name: 'Downtown Store',
+  address: {
+    street_address: '100 Commerce St',
+    address_locality: 'Springfield',
+    address_region: 'IL',
+    postal_code: '62704',
+    address_country: 'US',
+  },
+} as const;
+
 /**
  * Convert a MockAddress to a FulfillmentDestination.
  */
@@ -80,52 +92,55 @@ export const MOCK_PROFILE: UCPProfile = {
   ucp: {
     version: '2026-01-23',
     services: {
-      'dev.ucp.shopping': {
-        version: '2026-01-23',
-        spec: 'https://ucp.dev/latest/specification/checkout/',
-        rest: {
+      'dev.ucp.shopping': [
+        {
+          version: '2026-01-23',
+          spec: 'https://ucp.dev/latest/specification/checkout/',
           schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
+          transport: 'rest' as const,
           endpoint: 'http://localhost:3000',
         },
-      },
+      ],
     },
-    capabilities: [
-      {
-        name: 'dev.ucp.shopping.checkout',
-        version: '2026-01-23',
-        spec: 'https://ucp.dev/latest/specification/checkout/',
-        schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
-      },
-      {
-        name: 'dev.ucp.shopping.fulfillment',
-        version: '2026-01-23',
-        spec: 'https://ucp.dev/latest/specification/fulfillment/',
-        schema: 'https://ucp.dev/2026-01-23/schemas/shopping/fulfillment.json',
-        extends: 'dev.ucp.shopping.checkout',
-      },
-      {
-        name: 'dev.ucp.shopping.discounts',
-        version: '2026-01-23',
-        spec: 'https://ucp.dev/latest/specification/discounts/',
-        schema: 'https://ucp.dev/2026-01-23/schemas/shopping/discounts.json',
-        extends: 'dev.ucp.shopping.checkout',
-      },
-    ],
+    capabilities: {
+      'dev.ucp.shopping.checkout': [
+        {
+          version: '2026-01-23',
+          spec: 'https://ucp.dev/latest/specification/checkout/',
+          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
+        },
+      ],
+      'dev.ucp.shopping.fulfillment': [
+        {
+          version: '2026-01-23',
+          spec: 'https://ucp.dev/latest/specification/fulfillment/',
+          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/fulfillment.json',
+          extends: 'dev.ucp.shopping.checkout',
+          config: { supports_multi_group: false, supports_pickup: true },
+        },
+      ],
+      'dev.ucp.shopping.discounts': [
+        {
+          version: '2026-01-23',
+          spec: 'https://ucp.dev/latest/specification/discounts/',
+          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/discounts.json',
+          extends: 'dev.ucp.shopping.checkout',
+        },
+      ],
+    },
+    payment_handlers: {
+      'dev.ucp.mock_payment': [
+        {
+          id: 'mock_payment_handler',
+          version: '2026-01-23',
+          spec: 'https://ucp.dev/latest/specification/overview/',
+          schema: 'https://ucp.dev/latest/specification/overview/',
+          config: {},
+        },
+      ],
+    },
   },
   signing_keys: [],
-  payment: {
-    handlers: [
-      {
-        id: 'mock_payment_handler',
-        name: 'dev.ucp.mock_payment',
-        version: '2026-01-23',
-        spec: 'https://ucp.dev/latest/specification/overview/',
-        config_schema: 'https://ucp.dev/latest/specification/overview/',
-        instrument_schemas: [],
-        config: {},
-      },
-    ],
-  },
 };
 
 /* ---------------------------------------------------------------------------
@@ -155,6 +170,8 @@ export const MOCK_PRODUCTS: readonly Product[] = [
     in_stock: true,
     stock_quantity: 100,
     images: ['https://mock.store/images/bouquet-roses-1.jpg'],
+    categories: ['flowers', 'gifts'],
+    rating: { value: 4.8, scale_max: 5, count: 124 },
     variants: [
       {
         id: 'var-roses-a',
@@ -174,6 +191,7 @@ export const MOCK_PRODUCTS: readonly Product[] = [
     in_stock: false,
     stock_quantity: 0,
     images: ['https://mock.store/images/gardenias-1.jpg'],
+    categories: ['flowers', 'gifts'],
     variants: [],
   },
   {
@@ -185,6 +203,8 @@ export const MOCK_PRODUCTS: readonly Product[] = [
     in_stock: true,
     stock_quantity: 50,
     images: ['https://mock.store/images/shoes-pro-1.jpg'],
+    categories: ['footwear', 'running'],
+    rating: { value: 4.5, scale_max: 5, count: 89 },
     variants: [
       {
         id: 'var-001a',
@@ -211,6 +231,7 @@ export const MOCK_PRODUCTS: readonly Product[] = [
     in_stock: true,
     stock_quantity: 120,
     images: ['https://mock.store/images/sneakers-1.jpg'],
+    categories: ['footwear', 'casual'],
     variants: [
       {
         id: 'var-002a',
@@ -237,6 +258,8 @@ export const MOCK_PRODUCTS: readonly Product[] = [
     in_stock: true,
     stock_quantity: 30,
     images: ['https://mock.store/images/hiking-boots-1.jpg'],
+    categories: ['footwear', 'hiking'],
+    rating: { value: 4.7, scale_max: 5, count: 56 },
     variants: [
       {
         id: 'var-003a',
@@ -256,6 +279,7 @@ export const MOCK_PRODUCTS: readonly Product[] = [
     in_stock: true,
     stock_quantity: 15,
     images: ['https://mock.store/images/loafers-1.jpg'],
+    categories: ['footwear', 'formal'],
     variants: [
       {
         id: 'var-004a',
@@ -275,6 +299,7 @@ export const MOCK_PRODUCTS: readonly Product[] = [
     in_stock: true,
     stock_quantity: 200,
     images: ['https://mock.store/images/sandals-1.jpg'],
+    categories: ['footwear', 'casual'],
     variants: [
       {
         id: 'var-005a',

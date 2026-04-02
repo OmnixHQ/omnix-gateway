@@ -15,8 +15,8 @@ No adapter PR can be merged without a passing E2E test.
 
 ### Current E2E workflows:
 
-- Magento: `.github/workflows/test-magento-e2e.yml` + `tests/e2e-magento/`
-- Shopware: TODO
+- Magento: moved to private `@omnixhq/adapter-magento` repo
+- Shopware: moved to private `@omnixhq/adapter-shopware` repo
 
 ## Code Style Rules
 
@@ -66,9 +66,11 @@ npm run test:conformance
 cat docs/UCP_GAP_ANALYSIS.md | grep MISSING
 ```
 
-### Current Score (2026-03-29)
+### Current Score (2026-04-01)
 
+- SDK schema coverage: 150/150 (100%) — `@omnixhq/ucp-js-sdk` v1.1.0-draft.3.1
+- Integration tests: 222 passing (including 18 behavioral gap tests)
 - MUST/SHOULD: 60/79 (76%)
 - Automated checks: 29/34 pass
-- 0 MUST gaps remaining (signing_keys, webhook delivery, webhook JWT signing all implemented)
+- 0 MUST gaps remaining
 - Spec version: 2026-01-23

@@ -18,7 +18,7 @@ export async function createAdapterForTenant(
       return new mod.MagentoAdapter({
         storeUrl: config['storeUrl'] ?? '',
         apiKey: config['apiKey'] ?? '',
-      });
+      }) as unknown as PlatformAdapter;
     }
 
     case 'shopware': {
@@ -28,7 +28,7 @@ export async function createAdapterForTenant(
       return new mod.ShopwareAdapter({
         storeUrl: config['storeUrl'] ?? '',
         accessKey: config['accessKey'] ?? '',
-      });
+      }) as unknown as PlatformAdapter;
     }
 
     default:

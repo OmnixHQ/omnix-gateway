@@ -26,6 +26,8 @@ import { healthRoutes } from '../routes/health.js';
 import { discoveryRoutes } from '../routes/discovery.js';
 import { productRoutes } from '../routes/products.js';
 import { checkoutRoutes } from '../routes/checkout.js';
+import { catalogRoutes } from '../routes/catalog.js';
+import { cartRoutes } from '../routes/cart.js';
 import { MockSessionStore } from './mock-session-store.js';
 
 export const TEST_DOMAIN = 'mock-store.localhost';
@@ -179,6 +181,8 @@ export async function buildTestApp(): Promise<{
   await app.register(healthRoutes);
   await app.register(discoveryRoutes);
   await app.register(productRoutes);
+  await app.register(catalogRoutes);
+  await app.register(cartRoutes);
   await app.register(checkoutRoutes);
 
   await app.ready();

@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { AdapterError } from '@ucp-gateway/core';
+import { AdapterError, toSdkProduct } from '@ucp-gateway/core';
 import { buildUCPErrorBody } from './checkout-helpers.js';
 
 const searchQuerySchema = z.object({
@@ -53,7 +53,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
     });
 
     return {
-      products,
+      products: products.map(toSdkProduct),
       total: products.length,
       page: query.page,
       limit: query.limit,
@@ -63,7 +63,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { id: string } }>('/ucp/products/:id', async (request, reply: FastifyReply) => {
     try {
       const product = await request.adapter.getProduct(request.params.id);
-      return product;
+      return toSdkProduct(product);
     } catch (err: unknown) {
       if (err instanceof AdapterError && err.code === 'PRODUCT_NOT_FOUND') {
         return reply.status(404).send(buildUCPErrorBody('product_not_found', err.message));

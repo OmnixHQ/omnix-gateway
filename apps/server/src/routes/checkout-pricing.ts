@@ -142,7 +142,7 @@ export async function computeCheckoutTotals(
     discounts = await processDiscounts(discountCodes, subtotal, adapter, cartId);
     discountAmount = discounts.applied.reduce((sum, d) => sum + d.amount, 0);
     if (discountAmount > 0) {
-      totals.push({ type: 'discount', amount: -discountAmount, display_text: 'Discount' });
+      totals.push({ type: 'discount', amount: discountAmount, display_text: 'Discount' });
     }
   }
 

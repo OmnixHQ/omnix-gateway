@@ -28,6 +28,8 @@ export class MockSessionStore {
       discounts: null,
       continue_url: null,
       messages: [],
+      consent: null,
+      signals: null,
       escalation: null,
       idempotency_key: null,
       expires_at: expiresAt.toISOString(),

@@ -61,6 +61,8 @@ export interface CheckoutSession {
   readonly messages: readonly UCPMessage[];
   readonly fulfillment: Fulfillment | null;
   readonly discounts: CheckoutDiscounts | null;
+  readonly consent: Readonly<Record<string, boolean>> | null;
+  readonly signals: Readonly<Record<string, unknown>> | null;
   readonly escalation: EscalationDetails | null;
   readonly idempotency_key: string | null;
   readonly expires_at: string;
@@ -105,6 +107,8 @@ export class SessionStore {
       discounts: null,
       continue_url: null,
       messages: [],
+      consent: null,
+      signals: null,
       escalation: null,
       idempotency_key: null,
       expires_at: expiresAt.toISOString(),

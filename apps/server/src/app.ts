@@ -7,10 +7,14 @@ import { tenantResolutionPlugin } from './middleware/tenant-resolution.js';
 import { agentHeaderPlugin } from './middleware/agent-header.js';
 import { requestIdPlugin } from './middleware/request-id.js';
 import { requestSignaturePlugin } from './middleware/request-signature.js';
+import { versionNegotiationPlugin } from './middleware/version-negotiation.js';
 import { healthRoutes } from './routes/health.js';
 import { discoveryRoutes } from './routes/discovery.js';
 import { productRoutes } from './routes/products.js';
 import { checkoutRoutes } from './routes/checkout.js';
+import { catalogRoutes } from './routes/catalog.js';
+import { cartRoutes } from './routes/cart.js';
+import { identityRoutes } from './routes/identity.js';
 import { createWebhookWorker, createWebhookBridge } from './webhooks/index.js';
 
 export interface BuildAppOptions {
@@ -60,10 +64,14 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await app.register(tenantResolutionPlugin);
   await app.register(agentHeaderPlugin);
   await app.register(requestSignaturePlugin);
+  await app.register(versionNegotiationPlugin);
 
   await app.register(healthRoutes);
   await app.register(discoveryRoutes);
   await app.register(productRoutes);
+  await app.register(catalogRoutes);
+  await app.register(cartRoutes);
+  await app.register(identityRoutes);
   await app.register(checkoutRoutes);
 
   return app;

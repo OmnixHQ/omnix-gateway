@@ -81,7 +81,8 @@ describe('Integration: signing_keys in discovery profile', () => {
     const res = await app.inject({ method: 'GET', url: '/.well-known/ucp', headers: HOST_HEADER });
     const body = JSON.parse(res.body) as Record<string, unknown>;
     expect(body).toHaveProperty('ucp');
-    expect(body).toHaveProperty('payment');
+    const ucp = body['ucp'] as Record<string, unknown>;
+    expect(ucp).toHaveProperty('payment_handlers');
     expect(body).toHaveProperty('signing_keys');
     expect((body['ucp'] as Record<string, unknown>)['version']).toBe('2026-01-23');
   });

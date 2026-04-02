@@ -3,6 +3,7 @@ import type {
   PlatformAdapter,
   SessionStore,
   UCPOrder,
+  UCPMessage,
   OrderFulfillment,
   OrderFulfillmentExpectation,
   EventBus,
@@ -224,6 +225,8 @@ export async function handleCreateSession(
   if (body.currency) updateFields['currency'] = body.currency;
   if (body.buyer) updateFields['buyer'] = body.buyer;
   if (body.payment) updateFields['payment'] = body.payment;
+  if (body.signals) updateFields['signals'] = body.signals;
+  if (body.consent) updateFields['consent'] = body.consent;
 
   if (body.fulfillment) {
     const buyerEmail = body.buyer?.email ?? undefined;
@@ -316,6 +319,8 @@ export async function handleUpdateSession(
     if (body.buyer.shipping_address) updateData['shipping_address'] = body.buyer.shipping_address;
     if (body.buyer.billing_address) updateData['billing_address'] = body.buyer.billing_address;
   }
+  if (body.signals) updateData['signals'] = body.signals;
+  if (body.consent) updateData['consent'] = body.consent;
 
   const effectiveLineItems =
     (updateData['line_items'] as CheckoutSession['line_items']) ?? session.line_items;
@@ -433,7 +438,7 @@ export async function handleCompleteSession(
   try {
     const paymentToken = {
       token: paymentTokenValue,
-      provider: selectedInstrument.handler_id,
+      provider: String(selectedInstrument.handler_id ?? ''),
     };
     const placedOrder = await deps.adapter.placeOrder(cartId, paymentToken, {
       shipping_address: session.shipping_address ?? undefined,
@@ -447,7 +452,9 @@ export async function handleCompleteSession(
     const ucpOrder: UCPOrder = {
       ucp: {
         version: UCP_VERSION,
-        capabilities: [{ name: 'dev.ucp.shopping.order', version: UCP_VERSION }],
+        capabilities: {
+          'dev.ucp.shopping.order': [{ version: UCP_VERSION }],
+        },
       },
       id: placedOrder.id,
       checkout_id: session.id,
@@ -481,10 +488,11 @@ export async function handleCompleteSession(
     return succeed(200, completed ?? session);
   } catch (err: unknown) {
     if (err instanceof EscalationRequiredError) {
-      const escalationMessage = {
+      const escalationMessage: UCPMessage = {
         type: 'error' as const,
         code: 'escalation_required',
         content: err.escalation.reason ?? 'Payment requires additional verification',
+        content_type: 'plain' as const,
         severity: 'requires_buyer_review' as const,
       };
       const existingMessages = session.messages ?? [];
