@@ -492,7 +492,7 @@ describe('Behavioral gap coverage', () => {
 
       expect(capabilities).toHaveProperty('dev.ucp.shopping.checkout');
       expect(capabilities).toHaveProperty('dev.ucp.shopping.fulfillment');
-      expect(capabilities).toHaveProperty('dev.ucp.shopping.discounts');
+      expect(capabilities).toHaveProperty('dev.ucp.shopping.discount');
       expect(capabilities).toHaveProperty('dev.ucp.shopping.catalog');
       expect(capabilities).toHaveProperty('dev.ucp.shopping.cart');
       expect(capabilities).toHaveProperty('dev.ucp.shopping.buyer_consent');

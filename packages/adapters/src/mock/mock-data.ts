@@ -119,11 +119,19 @@ export const MOCK_PROFILE: UCPProfile = {
           config: { supports_multi_group: false, supports_pickup: true },
         },
       ],
-      'dev.ucp.shopping.discounts': [
+      'dev.ucp.shopping.discount': [
         {
           version: '2026-01-23',
-          spec: 'https://ucp.dev/latest/specification/discounts/',
-          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/discounts.json',
+          spec: 'https://ucp.dev/latest/specification/discount/',
+          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/discount.json',
+          extends: 'dev.ucp.shopping.checkout',
+        },
+      ],
+      'dev.ucp.shopping.order': [
+        {
+          version: '2026-01-23',
+          spec: 'https://ucp.dev/latest/specification/order/',
+          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/order.json',
           extends: 'dev.ucp.shopping.checkout',
         },
       ],

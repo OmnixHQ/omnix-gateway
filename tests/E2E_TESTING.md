@@ -222,73 +222,37 @@ These scenarios require features that are planned but not yet implemented in the
 
 ## Running Tests
 
-### Locally (requires running platforms)
+### Locally (MockAdapter)
 
 ```bash
 # Start infrastructure
 docker compose -f docker-compose.dev.yml up -d
-docker compose -f platforms/docker-compose.platforms.yml up -d
-
-# Setup Magento (first time only)
-bash tests/e2e-magento/setup-magento.sh
-
-# Seed tenants (switches gateway to target platform)
-bash tests/e2e-magento/seed-tenant.sh    # or
-bash tests/e2e-shopware/seed-tenant.sh
+cp .env.example .env
 
 # Start gateway
 npm run dev
 
-# Run Magento E2E (vitest — 20 scenarios)
-npx vitest run --config tests/e2e-magento/vitest.config.ts
+# Run unit + integration tests (222 tests)
+npm test
 
-# Run Magento E2E (bash — 26 assertions)
-bash tests/e2e-magento/run-e2e-checkout.sh
-
-# Run Shopware E2E (bash — 26 assertions)
-bash tests/e2e-shopware/run-e2e-checkout.sh
+# Run UCP conformance tests (Python)
+npm run test:conformance
 ```
 
-### In CI
+### Platform-Specific E2E (Private Repos)
 
-E2E tests run automatically on PRs that touch adapter or checkout code:
+Magento and Shopware E2E tests have moved to private `@omnixhq` packages:
 
-- `.github/workflows/test-magento-e2e.yml` — triggered by changes in `packages/adapters/src/magento/**`, `apps/server/src/routes/**`, `tests/e2e-magento/**`
-- `.github/workflows/test-shopware-e2e.yml` — triggered by changes in `packages/adapters/src/shopware/**`, `apps/server/src/routes/**`, `tests/e2e-shopware/**`
+- `@omnixhq/adapter-magento` — Magento 2.x E2E CI workflow
+- `@omnixhq/adapter-shopware` — Shopware 6.x E2E CI workflow
 
-Both workflows:
-
-1. Start Postgres + Redis
-2. Start platform (Magento via Docker / Shopware via Docker)
-3. Seed test products and tenant
-4. Start gateway
-5. Run full E2E suite
-6. Upload test artifacts on failure
-
-## Important: Tenant Domain Conflict
-
-Both platforms share `localhost:3000` as the gateway domain. Only ONE tenant can own a domain at a time. When switching between platforms locally:
-
-```bash
-# Switch to Magento
-bash tests/e2e-magento/seed-tenant.sh
-# (restart gateway)
-
-# Switch to Shopware
-bash tests/e2e-shopware/seed-tenant.sh
-# (restart gateway)
-```
-
-In CI, each workflow seeds its own tenant — they run in separate jobs so there's no conflict.
+Each private repo contains its own CI workflow that starts the platform, seeds products/tenants, and runs the full checkout flow.
 
 ## Adding a New Platform Adapter
 
-When implementing a new adapter (e.g., Shopify), create:
+New adapters should be implemented as separate `@omnixhq` packages. Each adapter repo must include:
 
-1. `tests/e2e-{platform}/run-e2e-checkout.sh` — bash E2E (copy from Magento, adapt product seeding)
-2. `tests/e2e-{platform}/seed-tenant.sh` — tenant seeding script
-3. `tests/e2e-{platform}/setup-{platform}.sh` — platform setup (if Docker-based)
-4. `.github/workflows/test-{platform}-e2e.yml` — CI workflow
-5. Optionally: `tests/e2e-{platform}/checkout.test.ts` + `vitest.config.ts` for vitest scenarios
-
-The new adapter MUST pass all 26 common scenarios before merging (per CLAUDE.md rules).
+1. E2E CI workflow (starts platform, seeds data, runs checkout flow)
+2. Tenant seeding script
+3. Platform setup/Docker configuration
+4. Must pass the common test matrix (30 scenarios) before merging

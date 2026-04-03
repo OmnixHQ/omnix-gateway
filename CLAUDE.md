@@ -41,8 +41,9 @@ The root `npm run build` handles this automatically.
 
 ### Reference Documents
 
-- `docs/UCP_SPECIFICATION_REQUIREMENTS.md` — complete spec with every MUST/SHOULD/MAY
-- `docs/UCP_GAP_ANALYSIS.md` — cross-reference of spec vs implementation (92 requirements)
+- `UCP_SPEC.md` — specification links and schema URLs
+- `docs/UCP_ORDER_SPEC.md` — order capability schema reference
+- `docs/SPEC_COMPLIANCE_TICKETS.md` — compliance work items
 
 ### When to Recheck
 
@@ -66,7 +67,7 @@ npm run test:conformance
 cat docs/UCP_GAP_ANALYSIS.md | grep MISSING
 ```
 
-### Current Score (2026-04-01)
+### Current Score (2026-04-02)
 
 - SDK schema coverage: 150/150 (100%) — `@omnixhq/ucp-js-sdk` v1.1.0-draft.3.1
 - Integration tests: 222 passing (including 18 behavioral gap tests)

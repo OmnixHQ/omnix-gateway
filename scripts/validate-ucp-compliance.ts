@@ -688,7 +688,7 @@ async function runChecks(): Promise<void> {
       );
       check(
         'PH1-13 has discounts capability',
-        capNames.includes('dev.ucp.shopping.discounts'),
+        capNames.includes('dev.ucp.shopping.discount'),
         capNames.join(', '),
       );
     }
@@ -708,7 +708,7 @@ async function runChecks(): Promise<void> {
     );
     check(
       'PH1-15 discovery has discounts cap',
-      discCapNames.includes('dev.ucp.shopping.discounts'),
+      discCapNames.includes('dev.ucp.shopping.discount'),
       discCapNames.join(', '),
     );
   }

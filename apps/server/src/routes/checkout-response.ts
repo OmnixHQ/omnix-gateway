@@ -79,11 +79,19 @@ function buildCheckoutResponse(
             extends: 'dev.ucp.shopping.checkout',
           },
         ],
-        'dev.ucp.shopping.discounts': [
+        'dev.ucp.shopping.discount': [
           {
             version: UCP_VERSION,
-            spec: 'https://ucp.dev/latest/specification/discounts/',
-            schema: 'https://ucp.dev/2026-01-23/schemas/shopping/discounts.json',
+            spec: 'https://ucp.dev/latest/specification/discount/',
+            schema: `https://ucp.dev/${UCP_VERSION}/schemas/shopping/discount.json`,
+            extends: 'dev.ucp.shopping.checkout',
+          },
+        ],
+        'dev.ucp.shopping.order': [
+          {
+            version: UCP_VERSION,
+            spec: 'https://ucp.dev/latest/specification/order/',
+            schema: `https://ucp.dev/${UCP_VERSION}/schemas/shopping/order.json`,
             extends: 'dev.ucp.shopping.checkout',
           },
         ],

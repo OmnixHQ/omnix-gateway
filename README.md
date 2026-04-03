@@ -2,8 +2,8 @@
 
 > Universal Commerce Protocol gateway — connect any e-commerce store to any AI agent.
 
-[![CI](https://github.com/GetMomentumToday/ucp-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/GetMomentumToday/ucp-gateway/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/GetMomentumToday/ucp-gateway/graph/badge.svg)](https://codecov.io/gh/GetMomentumToday/ucp-gateway)
+[![CI](https://github.com/OmnixHQ/omnix-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/OmnixHQ/omnix-gateway/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/OmnixHQ/omnix-gateway/graph/badge.svg)](https://codecov.io/gh/OmnixHQ/omnix-gateway)
 [![License: ELv2](https://img.shields.io/badge/License-ELv2-blue.svg)](LICENSE.md)
 [![UCP Spec](https://img.shields.io/badge/UCP-2026--01--23-purple.svg)](https://ucp.dev/latest/specification/overview/)
 [![Node.js 22](https://img.shields.io/badge/node-22-brightgreen.svg)](https://nodejs.org)
@@ -13,7 +13,7 @@
 
 ## Overview
 
-**UCP Gateway** is an [ELv2-licensed](LICENSE.md) server implementing the [Universal Commerce Protocol](https://ucp.dev). It translates between e-commerce platforms (Magento, Shopware) and AI agents via a standardised checkout API.
+**UCP Gateway** (formerly `ucp-gateway`) is an [ELv2-licensed](LICENSE.md) server implementing the [Universal Commerce Protocol](https://ucp.dev). It translates between e-commerce platforms and AI agents via a standardised checkout API. Paid platform adapters (Magento, Shopware) live in private `@omnixhq` packages.
 
 | Problem                        | Solution                                 |
 | ------------------------------ | ---------------------------------------- |
@@ -24,7 +24,7 @@
 ## Features
 
 - **UCP spec compliant** — 150/150 SDK schemas covered (`@omnixhq/ucp-js-sdk` v1.1.0-draft.3.1)
-- **3 built-in adapters** — Magento 2.x (REST), Shopware 6.x (Store API), MockAdapter
+- **MockAdapter built-in** — Magento 2.x and Shopware 6.x available as private `@omnixhq` packages
 - **Full checkout flow** — discovery, search, create/update/complete/cancel sessions
 - **Catalog & cart** — product search with categories/filters, cart CRUD, SDK-shaped responses
 - **Order lifecycle** — line items, fulfillment events, adjustments, fulfilled tracking
@@ -38,8 +38,8 @@
 ## Quick Start
 
 ```bash
-git clone git@github.com:GetMomentumToday/ucp-gateway.git
-cd ucp-gateway
+git clone git@github.com:OmnixHQ/omnix-gateway.git
+cd omnix-gateway
 npm install
 docker compose -f docker-compose.dev.yml up -d
 cp .env.example .env
@@ -105,12 +105,12 @@ curl -H "UCP-Agent: my-agent/1.0" 'http://localhost:3000/ucp/products?q=shoes' |
 
 ## Adapters
 
-| Adapter          | Catalog                          | Cart                     | Checkout                                        | Order Lifecycle     |
-| ---------------- | -------------------------------- | ------------------------ | ----------------------------------------------- | ------------------- |
-| **MockAdapter**  | Search, get, categories, ratings | Create, get, add, remove | Totals, fulfillment (US/intl/pickup), discounts | Events, adjustments |
-| **Magento 2.x**  | REST API                         | Guest cart, get          | Shipping, totals, order                         | Read                |
-| **Shopware 6.x** | Store API                        | Store API, get           | Context, totals, order                          | Read                |
-| Shopify          | Planned                          | —                        | —                                               | —                   |
+| Adapter          | Catalog                          | Cart                     | Checkout                                        | Order Lifecycle     | Package                     |
+| ---------------- | -------------------------------- | ------------------------ | ----------------------------------------------- | ------------------- | --------------------------- |
+| **MockAdapter**  | Search, get, categories, ratings | Create, get, add, remove | Totals, fulfillment (US/intl/pickup), discounts | Events, adjustments | Built-in                    |
+| **Magento 2.x**  | REST API                         | Guest cart, get          | Shipping, totals, order                         | Read                | `@omnixhq/adapter-magento`  |
+| **Shopware 6.x** | Store API                        | Store API, get           | Context, totals, order                          | Read                | `@omnixhq/adapter-shopware` |
+| Shopify          | Planned                          | —                        | —                                               | —                   | —                           |
 
 ## UCP Spec Compliance
 

@@ -76,7 +76,7 @@ Any spec-conformant platform will reject our responses.
 ### UCPM-236: Add fulfillment + discount capabilities to adapter profiles
 
 - **Priority:** P0 Critical | **Estimate:** 1 | **Labels:** Backend, Adapter
-- **Summary:** Both adapters implement fulfillment and discount methods but their discovery profiles only declare `dev.ucp.shopping.checkout`. Missing: `dev.ucp.shopping.fulfillment`, `dev.ucp.shopping.discounts`.
+- **Summary:** Both adapters implement fulfillment and discount methods but their discovery profiles only declare `dev.ucp.shopping.checkout`. Missing: `dev.ucp.shopping.fulfillment`, `dev.ucp.shopping.discount`.
 - **Files:** `MagentoAdapter.ts:52-75`, `ShopwareAdapter.ts:68-96`, `mock-data.ts`
 - **AC:**
   - [ ] Magento profile declares fulfillment + discount capabilities
