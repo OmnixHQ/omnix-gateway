@@ -180,11 +180,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/ucp-schema
-          key: ucp-schema-1.2.0
+          key: ucp-schema-1.1.0
 
       - name: Install ucp-schema
         if: steps.cache-ucp-schema.outputs.cache-hit != 'true'
-        run: cargo install ucp-schema@1.2.0
+        run: cargo install ucp-schema@1.1.0
 
       - name: Clone UCP spec schemas
         run: git clone --depth 1 https://github.com/Universal-Commerce-Protocol/ucp.git tests/ucp-spec
