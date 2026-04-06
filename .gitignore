@@ -45,3 +45,4 @@ tmp/
 temp/
 tests/conformance/
 tests/sdk/
+tests/ucp-spec/

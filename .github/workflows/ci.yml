@@ -123,3 +123,105 @@ jobs:
           slug: GetMomentumToday/ucp-gateway
           files: apps/server/coverage/lcov.info
           fail_ci_if_error: false
+
+  schema-validation:
+    name: UCP Schema Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ucp
+          POSTGRES_PASSWORD: ucp
+          POSTGRES_DB: ucp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://ucp:ucp@localhost:5432/ucp
+      REDIS_URL: redis://localhost:6379
+      NODE_ENV: test
+      SECRET_KEY: ci_test_secret_key_at_least_32_characters
+      PORT: 3000
+      LOG_LEVEL: error
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache ucp-schema binary
+        id: cache-ucp-schema
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/ucp-schema
+          key: ucp-schema-1.2.0
+
+      - name: Install ucp-schema
+        if: steps.cache-ucp-schema.outputs.cache-hit != 'true'
+        run: cargo install ucp-schema@1.2.0
+
+      - name: Clone UCP spec schemas
+        run: git clone --depth 1 https://github.com/Universal-Commerce-Protocol/ucp.git tests/ucp-spec
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Seed test tenant
+        run: |
+          PGPASSWORD=ucp psql -h localhost -U ucp -d ucp -c "
+            CREATE TABLE IF NOT EXISTS tenants (
+              id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+              slug VARCHAR(255) UNIQUE NOT NULL,
+              domain VARCHAR(255) UNIQUE NOT NULL,
+              platform VARCHAR(100) NOT NULL,
+              adapter_config JSONB NOT NULL,
+              settings JSONB NOT NULL DEFAULT '{}',
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            INSERT INTO tenants (slug, domain, platform, adapter_config)
+            VALUES ('mock-ci', 'localhost:3000', 'mock', '{}')
+            ON CONFLICT (domain) DO NOTHING;
+          "
+
+      - name: Start gateway
+        run: |
+          node apps/server/dist/index.js &
+          sleep 3
+          curl -sf http://localhost:3000/health
+
+      - name: Run UCP schema validation
+        run: bash scripts/validate-schema.sh
+
+      - name: Stop gateway
+        if: always()
+        run: kill %1 || true
