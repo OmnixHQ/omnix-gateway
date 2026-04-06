@@ -6,6 +6,7 @@ import {
 import type { CheckoutSession, CheckoutLink, PaymentHandler } from '@ucp-gateway/core';
 
 const UCP_VERSION = '2026-01-23';
+const PAYMENT_HANDLER_DOMAIN = 'dev.ucp.shopping.checkout';
 
 const TERMINAL_STATUSES = new Set(['completed', 'canceled']);
 
@@ -96,20 +97,18 @@ function buildCheckoutResponse(
           },
         ],
       },
-      payment_handlers: Object.fromEntries(
-        (options?.paymentHandlers ?? []).map((h) => [
-          h.id,
-          [
-            {
-              id: h.id,
-              version: UCP_VERSION,
-              spec: 'https://ucp.dev/latest/specification/checkout/',
-              schema: `https://ucp.dev/${UCP_VERSION}/schemas/shopping/payment-handler.json`,
-              config: { name: h.name, type: h.type },
-            },
-          ],
-        ]),
-      ),
+      payment_handlers:
+        (options?.paymentHandlers ?? []).length > 0
+          ? {
+              [PAYMENT_HANDLER_DOMAIN]: (options?.paymentHandlers ?? []).map((h) => ({
+                id: h.id,
+                version: UCP_VERSION,
+                spec: 'https://ucp.dev/latest/specification/checkout/',
+                schema: `https://ucp.dev/${UCP_VERSION}/schemas/shopping/payment-handler.json`,
+                config: { name: h.name, type: h.type },
+              })),
+            }
+          : {},
     },
     id: session.id,
     status: statusResult.success ? statusResult.data : session.status,
