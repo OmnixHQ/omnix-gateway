@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@omnixhq/ucp-js-sdk": "^2.0.0",
-    "drizzle-orm": "^0.30.0",
+    "drizzle-orm": "^0.45.2",
     "ioredis": "^5.4.0",
     "jose": "^6.2.2",
     "postgres": "^3.4.0"
