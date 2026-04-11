@@ -320,6 +320,28 @@ describe('Catalog search and lookup', () => {
     expect(res.statusCode).toBe(404);
   });
 
+  it('POST /ucp/catalog/product with empty id returns 400', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/ucp/catalog/product',
+      headers: JSON_HEADERS,
+      payload: { id: '' },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('POST /ucp/catalog/search with string limit returns 400', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/ucp/catalog/search',
+      headers: JSON_HEADERS,
+      payload: { q: 'test', limit: '20' },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
   it('GET /ucp/products/:id returns single product detail', async () => {
     const res = await app.inject({
       method: 'GET',
