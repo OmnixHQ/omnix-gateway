@@ -29,7 +29,9 @@ export function toSdkCart(cart: Cart, options?: ToSdkCartOptions): SdkCart {
   const ucpVersion = options?.ucpVersion ?? UCP_VERSION;
   const lineItems = cart.items.map((item, i) => mapLineItem(item, i));
   const subtotal = lineItems.reduce((sum, li) => {
-    const sub = li.totals.find((t) => t.type === 'subtotal');
+    const sub = (li.totals as { type: string; amount: number }[]).find(
+      (t) => t.type === 'subtotal',
+    );
     return sum + (sub?.amount ?? 0);
   }, 0);
 

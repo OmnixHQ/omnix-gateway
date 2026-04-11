@@ -129,7 +129,9 @@ export async function computeCheckoutTotals(
   cartId?: string,
 ): Promise<{ readonly totals: readonly Total[]; readonly discounts: CheckoutDiscounts | null }> {
   const subtotal = lineItems.reduce((sum, li) => {
-    const liSubtotal = li.totals.find((t) => t.type === 'subtotal');
+    const liSubtotal = (li.totals as { type: string; amount: number }[]).find(
+      (t) => t.type === 'subtotal',
+    );
     return sum + (liSubtotal?.amount ?? 0);
   }, 0);
 
@@ -175,9 +177,12 @@ export async function computeTotalsForSessionWithFulfillment(
     line_items: effectiveLineItems,
     fulfillment,
   };
-  const fulfillmentTotals = computeFulfillmentTotals(effectiveSession, fulfillment);
+  const fulfillmentTotals = computeFulfillmentTotals(effectiveSession, fulfillment) as {
+    type: string;
+    amount: number;
+  }[];
   const fulfillmentCostEntry = fulfillmentTotals.find((t) => t.type === 'fulfillment');
-  const fulfillmentCost = fulfillmentCostEntry?.amount ?? 0;
+  const fulfillmentCost: number = fulfillmentCostEntry?.amount ?? 0;
 
   return computeCheckoutTotals(effectiveLineItems, discountCodes, fulfillmentCost, adapter, cartId);
 }

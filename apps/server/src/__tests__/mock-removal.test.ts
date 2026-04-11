@@ -6,8 +6,10 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import type { PlatformAdapter, Total, Fulfillment } from '@ucp-gateway/core';
+import type { PlatformAdapter, Fulfillment } from '@ucp-gateway/core';
 import { computeCheckoutTotals } from '../routes/checkout-pricing.js';
+
+type TotalEntry = { type: string; amount: number };
 import {
   buildFulfillmentForCreate,
   computeTotalsWithFulfillment,
@@ -18,7 +20,7 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeLineItemTotals(subtotal: number): readonly Total[] {
+function makeLineItemTotals(subtotal: number): readonly TotalEntry[] {
   return [
     { type: 'subtotal', amount: subtotal },
     { type: 'total', amount: subtotal },
@@ -26,7 +28,7 @@ function makeLineItemTotals(subtotal: number): readonly Total[] {
 }
 
 function makeLineItem(overrides: { id?: string; subtotal: number }): {
-  readonly totals: readonly Total[];
+  readonly totals: readonly TotalEntry[];
 } {
   return { totals: makeLineItemTotals(overrides.subtotal) };
 }
@@ -42,7 +44,7 @@ function makeSessionLineItem(opts: {
     id: opts.id ?? `li-0`,
     item: { id: opts.itemId, title: 'Test Item', price: opts.price, image_url: undefined },
     quantity: opts.quantity,
-    totals: makeLineItemTotals(sub) as Total[],
+    totals: makeLineItemTotals(sub) as TotalEntry[],
   };
 }
 
@@ -67,8 +69,8 @@ describe('computeCheckoutTotals', () => {
 
     const result = await computeCheckoutTotals(items, undefined, 0);
 
-    const subtotal = result.totals.find((t) => t.type === 'subtotal');
-    const total = result.totals.find((t) => t.type === 'total');
+    const subtotal = (result.totals as TotalEntry[]).find((t) => t.type === 'subtotal');
+    const total = (result.totals as TotalEntry[]).find((t) => t.type === 'total');
     expect(subtotal?.amount).toBe(5000);
     expect(total?.amount).toBe(5000);
     expect(result.discounts).toBeNull();
@@ -112,10 +114,10 @@ describe('computeCheckoutTotals', () => {
     // 10% of 10000 = 1000
     expect(result.discounts!.applied[0]!.amount).toBe(1000);
 
-    const discountTotal = result.totals.find((t) => t.type === 'discount');
+    const discountTotal = (result.totals as TotalEntry[]).find((t) => t.type === 'discount');
     expect(discountTotal?.amount).toBe(1000);
 
-    const total = result.totals.find((t) => t.type === 'total');
+    const total = (result.totals as TotalEntry[]).find((t) => t.type === 'total');
     expect(total?.amount).toBe(9000);
   });
 
@@ -131,7 +133,7 @@ describe('computeCheckoutTotals', () => {
     const result = await computeCheckoutTotals(items, ['FLAT5'], 0, adapter, 'cart-2');
 
     expect(result.discounts!.applied[0]!.amount).toBe(500);
-    const total = result.totals.find((t) => t.type === 'total');
+    const total = (result.totals as TotalEntry[]).find((t) => t.type === 'total');
     expect(total?.amount).toBe(2500);
   });
 
@@ -147,7 +149,7 @@ describe('computeCheckoutTotals', () => {
     expect(result.discounts!.codes).toEqual(['CODE1']);
     expect(result.discounts!.applied).toEqual([]);
 
-    const total = result.totals.find((t) => t.type === 'total');
+    const total = (result.totals as TotalEntry[]).find((t) => t.type === 'total');
     expect(total?.amount).toBe(5000);
   });
 
@@ -168,10 +170,10 @@ describe('computeCheckoutTotals', () => {
 
     const result = await computeCheckoutTotals(items, undefined, 500);
 
-    const fulfillmentEntry = result.totals.find((t) => t.type === 'fulfillment');
+    const fulfillmentEntry = (result.totals as TotalEntry[]).find((t) => t.type === 'fulfillment');
     expect(fulfillmentEntry?.amount).toBe(500);
 
-    const total = result.totals.find((t) => t.type === 'total');
+    const total = (result.totals as TotalEntry[]).find((t) => t.type === 'total');
     expect(total?.amount).toBe(2500);
   });
 
@@ -186,7 +188,7 @@ describe('computeCheckoutTotals', () => {
 
     const result = await computeCheckoutTotals(items, ['OFF10'], 750, adapter, 'cart-4');
 
-    const total = result.totals.find((t) => t.type === 'total');
+    const total = (result.totals as TotalEntry[]).find((t) => t.type === 'total');
     // 5000 - 1000 + 750 = 4750
     expect(total?.amount).toBe(4750);
   });
@@ -200,7 +202,7 @@ describe('computeCheckoutTotals', () => {
 
     expect(applyCoupon).toHaveBeenCalledWith('cart-5', 'INVALID');
     expect(result.discounts!.applied).toEqual([]);
-    const total = result.totals.find((t) => t.type === 'total');
+    const total = (result.totals as TotalEntry[]).find((t) => t.type === 'total');
     expect(total?.amount).toBe(2000);
   });
 });
@@ -265,10 +267,10 @@ describe('fulfillment: resolveItemPrice uses session line item price', () => {
     const totals = computeTotalsWithFulfillment(session, null);
 
     // subtotal = (2500 * 2) + (1000 * 1) = 6000
-    const subtotal = totals.find((t) => t.type === 'subtotal');
+    const subtotal = (totals as TotalEntry[]).find((t) => t.type === 'subtotal');
     expect(subtotal?.amount).toBe(6000);
 
-    const total = totals.find((t) => t.type === 'total');
+    const total = (totals as TotalEntry[]).find((t) => t.type === 'total');
     expect(total?.amount).toBe(6000);
   });
 
@@ -278,7 +280,7 @@ describe('fulfillment: resolveItemPrice uses session line item price', () => {
         id: 'li-0',
         item: { id: 'prod-no-price', title: 'No Price' },
         quantity: 3,
-        totals: makeLineItemTotals(0) as Total[],
+        totals: makeLineItemTotals(0) as TotalEntry[],
       },
     ];
 
@@ -309,7 +311,7 @@ describe('fulfillment: resolveItemPrice uses session line item price', () => {
 
     const totals = computeTotalsWithFulfillment(session, null);
 
-    const subtotal = totals.find((t) => t.type === 'subtotal');
+    const subtotal = (totals as TotalEntry[]).find((t) => t.type === 'subtotal');
     expect(subtotal?.amount).toBe(0);
   });
 });
@@ -397,7 +399,7 @@ describe('fulfillment: generateShippingOptions mock fallback', () => {
 
     const group = result!.methods![0]!.groups![0]!;
     const stdOption = group.options!.find((o) => o.id === 'std-ship')!;
-    const stdTotal = stdOption.totals.find((t) => t.type === 'total');
+    const stdTotal = (stdOption.totals as TotalEntry[]).find((t) => t.type === 'total');
     expect(stdTotal?.amount).toBe(0);
   });
 

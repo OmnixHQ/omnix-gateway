@@ -78,7 +78,9 @@ function extractFulfillmentCost(
     { ...session, line_items: effectiveLineItems } as CheckoutSession,
     fulfillment,
   );
-  const fulfillmentCostEntry = fulfillmentTotals.find((t) => t.type === 'fulfillment');
+  const fulfillmentCostEntry = (fulfillmentTotals as { type: string; amount: number }[]).find(
+    (t) => t.type === 'fulfillment',
+  );
   return fulfillmentCostEntry?.amount ?? 0;
 }
 
@@ -147,7 +149,7 @@ function buildOrderFulfillment(session: CheckoutSession): OrderFulfillment {
     (method.destinations ?? [])
       .filter((d) => d['id'] === method.selected_destination_id)
       .map((dest) => ({
-        id: `exp-${method.id}-${dest['id']}`,
+        id: `exp-${method.id}-${dest['id'] as string}`,
         line_items: method.line_item_ids.map((liId) => ({ id: liId, quantity: 1 })),
         method_type: (method.type ?? 'shipping') as 'shipping' | 'pickup' | 'digital',
         destination: (dest['address'] as Record<string, unknown> | undefined) ?? {},
@@ -465,11 +467,11 @@ export async function handleCompleteSession(
         id: li.id,
         item: { ...li.item, title: li.item.title ?? '', price: li.item.price ?? 0 },
         quantity: { total: li.quantity, fulfilled: 0 },
-        totals: [...li.totals],
+        totals: [...(li.totals as { type: string; amount: number }[])],
         status: 'processing' as const,
       })),
       currency: session.currency ?? 'USD',
-      totals: [...session.totals],
+      totals: [...(session.totals as { type: string; amount: number }[])],
       fulfillment: {
         expectations: [...orderFulfillment.expectations],
         events: [...orderFulfillment.events],

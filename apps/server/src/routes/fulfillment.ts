@@ -426,10 +426,11 @@ export function getSelectedFulfillmentCost(fulfillment: Fulfillment | null): num
       if (group.selected_option_id && group.options) {
         const option = group.options.find((o) => o.id === group.selected_option_id);
         if (option) {
+          const optTotals = option.totals as { type: string; amount: number }[];
           const optTotal =
-            option.totals.find((t) => t.type === 'total') ??
-            option.totals.find((t) => t.type === 'fulfillment') ??
-            option.totals[0];
+            optTotals.find((t) => t.type === 'total') ??
+            optTotals.find((t) => t.type === 'fulfillment') ??
+            optTotals[0];
           cost += optTotal?.amount ?? 0;
         }
       }
@@ -451,7 +452,9 @@ export function computeTotalsWithFulfillment(
 
   const fulfillmentCost = getSelectedFulfillmentCost(fulfillment);
 
-  const totals: Total[] = [{ type: 'subtotal', amount: subtotal }];
+  const totals: { type: string; amount: number; display_text?: string }[] = [
+    { type: 'subtotal', amount: subtotal },
+  ];
 
   if (fulfillmentCost > 0) {
     totals.push({ type: 'fulfillment', amount: fulfillmentCost, display_text: 'Shipping' });
@@ -459,5 +462,5 @@ export function computeTotalsWithFulfillment(
 
   totals.push({ type: 'total', amount: subtotal + fulfillmentCost });
 
-  return totals;
+  return totals as unknown as readonly Total[];
 }
