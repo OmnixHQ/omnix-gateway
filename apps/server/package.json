@@ -53,6 +53,6 @@
     "drizzle-kit": "^0.21.0",
     "tsx": "^4.19.0",
     "typescript": "*",
-    "vitest": "^1.6.0"
+    "vitest": "^4.1.4"
   }
 }
